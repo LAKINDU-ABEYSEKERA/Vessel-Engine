@@ -43,3 +43,7 @@ next-env.d.ts
 # IDE and Repomix artifacts
 .idea/
 repomix-output.xml
+
+# IDE and Repomix artifacts
+.idea/
+repomix-output.xml
