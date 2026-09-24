@@ -47,3 +47,10 @@ repomix-output.xml
 # IDE and Repomix artifacts
 .idea/
 repomix-output.xml
+
+
+# Stripe CLI binary
+stripe.exe
+
+# Local scripts data
+scripts/**/*.local.ts

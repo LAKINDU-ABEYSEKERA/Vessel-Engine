@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-// Base domain for subdomain-based tenant resolution.
-const BASE_DOMAIN = process.env.BASE_DOMAIN || 'vesselengine.com';
+import { BASE_DOMAIN } from '@/lib/config';
 
 // Reserved subdomains that must not be treated as tenant slugs.
 const RESERVED_SUBDOMAINS = new Set(['app', 'admin', 'api', 'www']);
@@ -22,18 +20,47 @@ function normalizeHost(hostHeader: string | null): string {
 }
 
 function getBaseDomainForHost(hostname: string): string {
-    // If localhost (or subdomain of localhost), use "localhost" as base.
     if (hostname === 'localhost' || hostname.endsWith('.localhost')) {
         return 'localhost';
+    }
+    if (hostname === 'lvh.me' || hostname.endsWith('.lvh.me')) {
+        return 'lvh.me';
     }
     return BASE_DOMAIN;
 }
 
-export function middleware(request: NextRequest) {
+/** True when the path is exactly `/app` or a child of it (`/app/login`). */
+function isAppPath(pathname: string): boolean {
+    return pathname === '/app' || pathname.startsWith('/app/');
+}
+
+export function proxy(request: NextRequest) {
+    const { pathname } = request.nextUrl;
+
+    // ------------------------------------------------------------------
+    // 0. Hard bypass — must run BEFORE any tenant/subdomain rewriting.
+    //
+    //    `/api/*`    → Stripe webhook + Auth.js handlers + fulfillment
+    //    `/app/*`    → Creator Dashboard (path-based in local dev)
+    //    `_next/*`   → Framework internals
+    //    dot paths   → Static assets
+    // ------------------------------------------------------------------
+    if (
+        pathname.startsWith('/api') ||
+        pathname.startsWith('/_next') ||
+        pathname.startsWith('/_static') ||
+        isAppPath(pathname) ||
+        pathname === '/favicon.ico' ||
+        pathname === '/robots.txt' ||
+        pathname === '/sitemap.xml' ||
+        pathname.includes('.')
+    ) {
+        return NextResponse.next();
+    }
+
     const host = request.headers.get('host');
     const hostname = normalizeHost(host);
     const baseDomain = getBaseDomainForHost(hostname);
-    const pathname = request.nextUrl.pathname;
     const search = request.nextUrl.search;
 
     // Helper to build rewrite URL preserving query string.
@@ -48,7 +75,8 @@ export function middleware(request: NextRequest) {
     if (
         hostname === baseDomain ||
         hostname === `www.${baseDomain}` ||
-        (baseDomain === 'localhost' && (hostname === 'localhost' || hostname === 'www.localhost'))
+        (baseDomain === 'localhost' &&
+            (hostname === 'localhost' || hostname === 'www.localhost'))
     ) {
         const platformPath =
             pathname === '/' ? '/platform' : `/platform${pathname}`;
@@ -59,7 +87,7 @@ export function middleware(request: NextRequest) {
     if (hostname.endsWith(`.${baseDomain}`)) {
         const subdomain = hostname.slice(0, -`.${baseDomain}`.length);
         if (RESERVED_SUBDOMAINS.has(subdomain)) {
-            let newPath;
+            let newPath: string | null;
             switch (subdomain) {
                 case 'app':
                     newPath = pathname === '/' ? '/app' : `/app${pathname}`;
@@ -71,7 +99,6 @@ export function middleware(request: NextRequest) {
                     newPath = pathname === '/' ? '/api' : `/api${pathname}`;
                     break;
                 case 'www':
-                    // Already handled as root, but keep for safety.
                     newPath = pathname === '/' ? '/platform' : `/platform${pathname}`;
                     break;
                 default:
@@ -94,16 +121,16 @@ export function middleware(request: NextRequest) {
 
     // 4. Tenant resolution via custom domain
     if (!tenantSlug) {
-        // Remove "www." for custom domain matching.
         const normalizedForCustom = hostname.replace(/^www\./, '');
         tenantSlug = CUSTOM_DOMAIN_TENANT_MAP[normalizedForCustom] || null;
     }
 
     if (tenantSlug) {
         const newPath =
-            pathname === '/' ? `/sites/${tenantSlug}` : `/sites/${tenantSlug}${pathname}`;
+            pathname === '/'
+                ? `/sites/${tenantSlug}`
+                : `/sites/${tenantSlug}${pathname}`;
 
-        // Clone headers and inject tenant slug for downstream use.
         const headers = new Headers(request.headers);
         headers.set('x-tenant-slug', tenantSlug);
 
@@ -112,10 +139,11 @@ export function middleware(request: NextRequest) {
         });
     }
 
-    // No tenant or special route matched; continue normally.
     return NextResponse.next();
 }
 
 export const config = {
-    matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\..*).*)'],
+    matcher: [
+        '/((?!api|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|.*\\..*).*)',
+    ],
 };

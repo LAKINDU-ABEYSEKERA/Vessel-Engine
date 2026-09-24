@@ -1,118 +1,211 @@
-import { notFound } from 'next/navigation';
-import Link from 'next/link';
-import { getTenantStore, getStoreProducts } from '@/db/queries/storefront';
-import { CartButton } from '@/components/cart/CartButton';
-import { AddToCartButton } from '@/components/cart/AddToCartButton';
+import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+import type { ReactNode } from "react";
+import { ShieldCheck, Store } from "lucide-react";
+import { Toaster } from "sonner";
 
-export const dynamic = 'force-dynamic';
+import { CartButton } from "@/components/storefront/cart-button";
+import { CheckoutCanceledToast } from "@/components/storefront/checkout-canceled-toast";
+import { EmptyCatalog } from "@/components/storefront/empty-catalog";
+import { ProductCard } from "@/components/storefront/product-card";
+import { getStoreProducts, getTenantStore } from "@/db/queries/storefront";
+import {
+    cx,
+    normalizeProduct,
+    normalizeStore,
+    storeHostname,
+    type RawProduct,
+    type RawStore,
+} from "@/lib/storefront";
 
-function formatPrice(cents: number): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-  }).format(cents / 100);
+export const dynamic = "force-dynamic";
+
+type PageProps = {
+    params: Promise<{ tenant: string }>;
+};
+
+/* -------------------------------------------------------------------------- */
+/*  Metadata                                                                   */
+/* -------------------------------------------------------------------------- */
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+    const { tenant } = await params;
+    const record = (await getTenantStore(tenant)) as RawStore | null | undefined;
+
+    if (!record) {
+        return { title: "Store not found" };
+    }
+
+    const store = normalizeStore(record, tenant);
+
+    return {
+        title: store.name,
+        description: store.description ?? `Shop the ${store.name} collection.`,
+        openGraph: {
+            title: store.name,
+            description: store.description ?? `Shop the ${store.name} collection.`,
+            siteName: store.name,
+            type: "website",
+        },
+    };
 }
 
-export default async function TenantStorefrontPage({
-  params,
-}: {
-  params: Promise<{ tenant: string }>;
-}) {
-  const { tenant } = await params;
-  const store = await getTenantStore(tenant);
+/* -------------------------------------------------------------------------- */
+/*  Page                                                                       */
+/* -------------------------------------------------------------------------- */
 
-  if (!store) {
-    notFound();
-  }
+export default async function TenantStorefrontPage({ params }: PageProps) {
+    const { tenant } = await params;
 
-  const storeProducts = await getStoreProducts(store.id);
+    const storeRecord = (await getTenantStore(tenant)) as RawStore | null | undefined;
+    if (!storeRecord) notFound();
 
-  return (
-    <main className="mx-auto max-w-6xl px-6 py-16">
-      {/* Store Header with Cart Trigger */}
-      <header className="mb-12 flex items-start justify-between border-b border-gray-200 pb-8">
-        <div>
-          <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-white">
-            {store.name}
-          </h1>
-          <p className="mt-2 text-sm text-gray-500">
-            {store.subdomain}.vesselengine.com
-          </p>
-        </div>
-        <CartButton storeId={store.id} />
-      </header>
+    const store = normalizeStore(storeRecord, tenant);
 
-      {/* Product Grid */}
-      {storeProducts.length === 0 ? (
-        <p className="text-gray-500">No products available yet.</p>
-      ) : (
-        <section
-          aria-label="Products"
-          className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3"
-        >
-          {storeProducts.map((product) => (
-            <article
-              key={product.id}
-              className="flex flex-col rounded-2xl border border-gray-200 bg-white p-6 shadow-sm transition hover:shadow-md"
-            >
-              <div className="mb-4 flex items-start justify-between gap-2">
-                <h2 className="text-lg font-semibold text-gray-900">
-                  {product.name}
-                </h2>
+    const productRecords = (await getStoreProducts(store.id)) as unknown as RawProduct[];
+    const products = (productRecords ?? []).map(normalizeProduct);
+
+    const digitalCount = products.filter((product) => product.kind === "digital").length;
+    const physicalCount = products.length - digitalCount;
+
+    return (
+        <div className="min-h-screen bg-zinc-950 text-zinc-100 antialiased selection:bg-zinc-100 selection:text-zinc-900">
+            <header className="sticky top-0 z-50 border-b border-zinc-800/80 bg-zinc-950/70 backdrop-blur-xl">
+                <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-6">
+                    <div className="flex min-w-0 items-center gap-3">
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-zinc-800/80 bg-zinc-900">
+                            {store.logoUrl ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img
+                                    src={store.logoUrl}
+                                    alt=""
+                                    className="h-full w-full object-cover"
+                                />
+                            ) : (
+                                <span className="font-mono text-xs tracking-tight text-zinc-400">
+                  {store.name.slice(0, 2).toUpperCase()}
+                </span>
+                            )}
+                        </div>
+
+                        <div className="flex min-w-0 items-center gap-2.5">
+              <span className="truncate text-sm font-medium tracking-tight text-zinc-100">
+                {store.name}
+              </span>
+                            <span className="hidden items-center gap-1.5 rounded-full border border-zinc-800/80 bg-zinc-900/60 px-2.5 py-1 font-mono text-[11px] tracking-tight text-zinc-400 sm:inline-flex">
                 <span
-                  className={
-                    'shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ' +
-                    (product.isDigital
-                      ? 'bg-indigo-50 text-indigo-700'
-                      : 'bg-emerald-50 text-emerald-700')
-                  }
-                >
-                  {product.isDigital ? 'Digital' : 'Physical'}
-                </span>
-              </div>
-
-              {product.description && (
-                <p className="mb-4 line-clamp-3 text-sm text-gray-600">
-                  {product.description}
-                </p>
-              )}
-
-              <div className="mt-auto flex items-center justify-between pt-4">
-                <span className="text-lg font-bold text-gray-900">
-                  {formatPrice(product.priceInCents)}
-                </span>
-                {!product.isDigital && (
-                  <span className="text-xs text-gray-500">
-                    {product.inventory > 0
-                      ? `${product.inventory} in stock`
-                      : 'Out of stock'}
-                  </span>
-                )}
-              </div>
-
-              <div className="mt-4">
-                <AddToCartButton
-                  storeId={store.id}
-                  product={{
-                    id: product.id,
-                    name: product.name,
-                    priceInCents: product.priceInCents,
-                    isDigital: product.isDigital,
-                    inventory: product.inventory,
-                  }}
+                    className="h-1.5 w-1.5 rounded-full bg-emerald-400"
+                    aria-hidden="true"
                 />
-              </div>
-            </article>
-          ))}
-        </section>
-      )}
+                                {storeHostname(store)}
+              </span>
+                        </div>
+                    </div>
 
-      <footer className="mt-16 border-t border-gray-200 pt-6 text-center text-xs text-gray-400">
-        Powered by{' '}
-        <Link href="/" className="underline hover:text-gray-600">
-          Vessel Engine
-        </Link>
-      </footer>
-    </main>
-  );
+                    <div className="flex items-center gap-2">
+                        <CartButton />
+                    </div>
+                </div>
+            </header>
+
+            <main className="mx-auto max-w-6xl px-6">
+                <section className="border-b border-zinc-800/80 py-20 md:py-28">
+                    <h1 className="max-w-[16ch] text-4xl font-medium leading-[1.05] tracking-tight text-zinc-100 md:text-6xl">
+                        {store.name}
+                    </h1>
+
+                    <p className="mt-6 max-w-[58ch] text-base leading-relaxed text-zinc-400 md:text-lg">
+                        {store.description ??
+                            "A small, considered collection. Everything here is made to be used."}
+                    </p>
+
+                    <div className="mt-9 flex flex-wrap items-center gap-2">
+                        <MetaPill>
+              <span className="font-mono tabular-nums text-zinc-200">
+                {products.length}
+              </span>
+                            {products.length === 1 ? "product" : "products"}
+                        </MetaPill>
+
+                        {digitalCount > 0 ? (
+                            <MetaPill>
+                <span className="font-mono tabular-nums text-zinc-200">
+                  {digitalCount}
+                </span>
+                                digital
+                            </MetaPill>
+                        ) : null}
+
+                        {physicalCount > 0 ? (
+                            <MetaPill>
+                <span className="font-mono tabular-nums text-zinc-200">
+                  {physicalCount}
+                </span>
+                                physical
+                            </MetaPill>
+                        ) : null}
+
+                        <MetaPill>
+                            <ShieldCheck className="h-3.5 w-3.5 text-zinc-500" strokeWidth={1.75} />
+                            Secure checkout
+                        </MetaPill>
+                    </div>
+                </section>
+
+                <section className="py-14">
+                    {products.length === 0 ? (
+                        <EmptyCatalog storeName={store.name} />
+                    ) : (
+                        <>
+                            <div className="mb-8 flex items-baseline justify-between gap-4">
+                                <h2 className="text-sm font-medium tracking-tight text-zinc-300">
+                                    Everything in the shop
+                                </h2>
+                                <span className="font-mono text-[11px] tabular-nums text-zinc-600">
+                  {products.length.toString().padStart(2, "0")} items
+                </span>
+                            </div>
+
+                            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+                                {products.map((product) => (
+                                    <ProductCard key={product.id} product={product} />
+                                ))}
+                            </div>
+                        </>
+                    )}
+                </section>
+            </main>
+
+            <footer className="border-t border-zinc-800/80">
+                <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-4 px-6 py-10 sm:flex-row sm:items-center">
+                    <p className="text-sm text-zinc-500">
+                        © {new Date().getFullYear()} {store.name}. All rights reserved.
+                    </p>
+                    <p className="inline-flex items-center gap-2 text-sm text-zinc-600">
+                        <Store className="h-3.5 w-3.5" strokeWidth={1.75} />
+                        Powered by
+                        <span className="font-medium tracking-tight text-zinc-400">
+              Vessel Engine
+            </span>
+                    </p>
+                </div>
+            </footer>
+
+            <Toaster
+                richColors
+                position="top-right"
+                theme="dark"
+                offset={{ top: 70, right: 470 }}
+            />
+            <CheckoutCanceledToast />
+        </div>
+    );
+}
+
+function MetaPill({ children }: { children: ReactNode }) {
+    return (
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-zinc-800/80 bg-zinc-900/60 px-3 py-1.5 text-[13px] tracking-tight text-zinc-500">
+      {children}
+    </span>
+    );
 }
