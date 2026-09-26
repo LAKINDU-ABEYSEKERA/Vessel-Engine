@@ -1,0 +1,1 @@
+ALTER TABLE "stores" ADD CONSTRAINT "stores_subdomain_format" CHECK ("stores"."subdomain" ~ '^[a-z0-9][a-z0-9-]{1,28}[a-z0-9]$');

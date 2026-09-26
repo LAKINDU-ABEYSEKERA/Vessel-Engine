@@ -8,33 +8,37 @@ import { CartButton } from "@/components/storefront/cart-button";
 import { CheckoutCanceledToast } from "@/components/storefront/checkout-canceled-toast";
 import { EmptyCatalog } from "@/components/storefront/empty-catalog";
 import { ProductCard } from "@/components/storefront/product-card";
-import { getStoreProducts, getTenantStore } from "@/db/queries/storefront";
+import {
+    getStoreCategories,
+    getStoreProducts,
+    getStoreProductsByCategory,
+    getTenantStore,
+} from "@/db/queries/storefront";
 import {
     cx,
+    normalizeCategory,
     normalizeProduct,
     normalizeStore,
     storeHostname,
     type RawProduct,
     type RawStore,
+    type StoreCategory,
 } from "@/lib/storefront";
+
+import { CategoryChips } from "./category-chips";
 
 export const dynamic = "force-dynamic";
 
 type PageProps = {
     params: Promise<{ tenant: string }>;
+    searchParams: Promise<{ section?: string }>;
 };
-
-/* -------------------------------------------------------------------------- */
-/*  Metadata                                                                   */
-/* -------------------------------------------------------------------------- */
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
     const { tenant } = await params;
     const record = (await getTenantStore(tenant)) as RawStore | null | undefined;
 
-    if (!record) {
-        return { title: "Store not found" };
-    }
+    if (!record) return { title: "Store not found" };
 
     const store = normalizeStore(record, tenant);
 
@@ -50,23 +54,45 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     };
 }
 
-/* -------------------------------------------------------------------------- */
-/*  Page                                                                       */
-/* -------------------------------------------------------------------------- */
-
-export default async function TenantStorefrontPage({ params }: PageProps) {
+export default async function TenantStorefrontPage({ params, searchParams }: PageProps) {
     const { tenant } = await params;
+    const { section } = await searchParams;
 
     const storeRecord = (await getTenantStore(tenant)) as RawStore | null | undefined;
     if (!storeRecord) notFound();
 
     const store = normalizeStore(storeRecord, tenant);
 
-    const productRecords = (await getStoreProducts(store.id)) as unknown as RawProduct[];
-    const products = (productRecords ?? []).map(normalizeProduct);
+    // Fetch everything in parallel. The `as` casts at the boundary are
+    // defensive: the query layer returns fully-typed rows, but if TS
+    // ever sees `unknown` (e.g. stale server cache), these keep the
+    // rest of the component compiling.
+    const [rawCategories, allProductsRaw, filteredRaw] = await Promise.all([
+        getStoreCategories(store.id) as Promise<unknown[]>,
+        getStoreProducts(store.id) as Promise<unknown[]>,
+        section
+            ? (getStoreProductsByCategory(store.id, section) as Promise<unknown[]>)
+            : Promise.resolve(null),
+    ]);
 
-    const digitalCount = products.filter((product) => product.kind === "digital").length;
-    const physicalCount = products.length - digitalCount;
+    const categories: StoreCategory[] = rawCategories.map((c) =>
+        normalizeCategory(c as Parameters<typeof normalizeCategory>[0])
+    );
+    const allProducts = allProductsRaw.map((p) =>
+        normalizeProduct(p as RawProduct)
+    );
+    const visibleProducts = filteredRaw
+        ? filteredRaw.map((p) => normalizeProduct(p as RawProduct))
+        : allProducts;
+
+    // If a section filter is applied but the slug doesn't match any category,
+    // show all products (graceful fallback).
+    const activeCategory: StoreCategory | null = section
+        ? categories.find((c) => c.slug === section) ?? null
+        : null;
+
+    const digitalCount = visibleProducts.filter((p) => p.kind === "digital").length;
+    const physicalCount = visibleProducts.length - digitalCount;
 
     return (
         <div className="min-h-screen bg-zinc-950 text-zinc-100 antialiased selection:bg-zinc-100 selection:text-zinc-900">
@@ -76,29 +102,22 @@ export default async function TenantStorefrontPage({ params }: PageProps) {
                         <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-zinc-800/80 bg-zinc-900">
                             {store.logoUrl ? (
                                 // eslint-disable-next-line @next/next/no-img-element
-                                <img
-                                    src={store.logoUrl}
-                                    alt=""
-                                    className="h-full w-full object-cover"
-                                />
+                                <img src={store.logoUrl} alt="" className="h-full w-full object-cover" />
                             ) : (
                                 <span className="font-mono text-xs tracking-tight text-zinc-400">
-                  {store.name.slice(0, 2).toUpperCase()}
-                </span>
+                                    {store.name.slice(0, 2).toUpperCase()}
+                                </span>
                             )}
                         </div>
 
                         <div className="flex min-w-0 items-center gap-2.5">
-              <span className="truncate text-sm font-medium tracking-tight text-zinc-100">
-                {store.name}
-              </span>
+                            <span className="truncate text-sm font-medium tracking-tight text-zinc-100">
+                                {store.name}
+                            </span>
                             <span className="hidden items-center gap-1.5 rounded-full border border-zinc-800/80 bg-zinc-900/60 px-2.5 py-1 font-mono text-[11px] tracking-tight text-zinc-400 sm:inline-flex">
-                <span
-                    className="h-1.5 w-1.5 rounded-full bg-emerald-400"
-                    aria-hidden="true"
-                />
+                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden="true" />
                                 {storeHostname(store)}
-              </span>
+                            </span>
                         </div>
                     </div>
 
@@ -111,7 +130,7 @@ export default async function TenantStorefrontPage({ params }: PageProps) {
             <main className="mx-auto max-w-6xl px-6">
                 <section className="border-b border-zinc-800/80 py-20 md:py-28">
                     <h1 className="max-w-[16ch] text-4xl font-medium leading-[1.05] tracking-tight text-zinc-100 md:text-6xl">
-                        {store.name}
+                        {activeCategory ? activeCategory.name : store.name}
                     </h1>
 
                     <p className="mt-6 max-w-[58ch] text-base leading-relaxed text-zinc-400 md:text-lg">
@@ -121,26 +140,26 @@ export default async function TenantStorefrontPage({ params }: PageProps) {
 
                     <div className="mt-9 flex flex-wrap items-center gap-2">
                         <MetaPill>
-              <span className="font-mono tabular-nums text-zinc-200">
-                {products.length}
-              </span>
-                            {products.length === 1 ? "product" : "products"}
+                            <span className="font-mono tabular-nums text-zinc-200">
+                                {visibleProducts.length}
+                            </span>
+                            {visibleProducts.length === 1 ? "product" : "products"}
                         </MetaPill>
 
                         {digitalCount > 0 ? (
                             <MetaPill>
-                <span className="font-mono tabular-nums text-zinc-200">
-                  {digitalCount}
-                </span>
+                                <span className="font-mono tabular-nums text-zinc-200">
+                                    {digitalCount}
+                                </span>
                                 digital
                             </MetaPill>
                         ) : null}
 
                         {physicalCount > 0 ? (
                             <MetaPill>
-                <span className="font-mono tabular-nums text-zinc-200">
-                  {physicalCount}
-                </span>
+                                <span className="font-mono tabular-nums text-zinc-200">
+                                    {physicalCount}
+                                </span>
                                 physical
                             </MetaPill>
                         ) : null}
@@ -153,21 +172,28 @@ export default async function TenantStorefrontPage({ params }: PageProps) {
                 </section>
 
                 <section className="py-14">
-                    {products.length === 0 ? (
+                    <CategoryChips
+                        categories={categories}
+                        activeSlug={activeCategory?.slug ?? null}
+                        totalProducts={allProducts.length}
+                        basePath="/"
+                    />
+
+                    {visibleProducts.length === 0 ? (
                         <EmptyCatalog storeName={store.name} />
                     ) : (
                         <>
                             <div className="mb-8 flex items-baseline justify-between gap-4">
                                 <h2 className="text-sm font-medium tracking-tight text-zinc-300">
-                                    Everything in the shop
+                                    {activeCategory ? `In ${activeCategory.name}` : "Everything in the shop"}
                                 </h2>
                                 <span className="font-mono text-[11px] tabular-nums text-zinc-600">
-                  {products.length.toString().padStart(2, "0")} items
-                </span>
+                                    {visibleProducts.length.toString().padStart(2, "0")} items
+                                </span>
                             </div>
 
                             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                                {products.map((product) => (
+                                {visibleProducts.map((product) => (
                                     <ProductCard key={product.id} product={product} />
                                 ))}
                             </div>
@@ -184,9 +210,7 @@ export default async function TenantStorefrontPage({ params }: PageProps) {
                     <p className="inline-flex items-center gap-2 text-sm text-zinc-600">
                         <Store className="h-3.5 w-3.5" strokeWidth={1.75} />
                         Powered by
-                        <span className="font-medium tracking-tight text-zinc-400">
-              Vessel Engine
-            </span>
+                        <span className="font-medium tracking-tight text-zinc-400">Vessel Engine</span>
                     </p>
                 </div>
             </footer>
@@ -205,7 +229,7 @@ export default async function TenantStorefrontPage({ params }: PageProps) {
 function MetaPill({ children }: { children: ReactNode }) {
     return (
         <span className="inline-flex items-center gap-1.5 rounded-full border border-zinc-800/80 bg-zinc-900/60 px-3 py-1.5 text-[13px] tracking-tight text-zinc-500">
-      {children}
-    </span>
+            {children}
+        </span>
     );
 }

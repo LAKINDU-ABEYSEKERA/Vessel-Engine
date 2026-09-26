@@ -8,8 +8,10 @@ import {
     uniqueIndex,
     index,
     primaryKey,
+    check,
 } from 'drizzle-orm/pg-core';
 import { randomUUID } from 'crypto';
+import { sql } from 'drizzle-orm';
 import type { AdapterAccountType } from 'next-auth/adapters';
 
 // ------------------------------------------------------------------
@@ -80,13 +82,55 @@ export const stores = pgTable(
             onDelete: 'cascade',
         }),
         name: text('name').notNull(),
-        subdomain: text('subdomain').notNull().unique(),
-        customDomain: text('custom_domain').unique(),
+        subdomain: text('subdomain').notNull(),
+        customDomain: text('custom_domain'),
+        deletedAt: timestamp('deleted_at'),
         createdAt: timestamp('created_at').defaultNow().notNull(),
         updatedAt: timestamp('updated_at').defaultNow().notNull(),
     },
     (table) => ({
         userIdx: index('stores_user_id_idx').on(table.userId),
+        subdomainFormat: check(
+            'stores_subdomain_format',
+            sql`${table.subdomain} ~ '^[a-z0-9][a-z0-9-]{1,28}[a-z0-9]$'`
+        ),
+        subdomainActiveUnique: uniqueIndex('stores_subdomain_active_unique')
+            .on(table.subdomain)
+            .where(sql`${table.deletedAt} IS NULL`),
+        customDomainActiveUnique: uniqueIndex('stores_custom_domain_active_unique')
+            .on(table.customDomain)
+            .where(sql`${table.deletedAt} IS NULL AND ${table.customDomain} IS NOT NULL`),
+    })
+);
+
+// ------------------------------------------------------------------
+// Category table (child of Store)
+// ------------------------------------------------------------------
+export const categories = pgTable(
+    'categories',
+    {
+        id: uuid('id').defaultRandom().primaryKey(),
+        storeId: uuid('store_id')
+            .notNull()
+            .references(() => stores.id, { onDelete: 'cascade' }),
+        name: text('name').notNull(),
+        slug: text('slug').notNull(),
+        /** Visual label only — drives icon + color. Not schema-shaping. */
+        type: text('type').notNull().default('other'),
+        position: integer('position').notNull().default(0),
+        createdAt: timestamp('created_at').defaultNow().notNull(),
+        updatedAt: timestamp('updated_at').defaultNow().notNull(),
+    },
+    (table) => ({
+        storeSlugUnique: uniqueIndex('categories_store_slug_unique_idx').on(
+            table.storeId,
+            table.slug
+        ),
+        storeIdx: index('categories_store_id_idx').on(table.storeId),
+        storePositionIdx: index('categories_store_position_idx').on(
+            table.storeId,
+            table.position
+        ),
     })
 );
 
@@ -107,7 +151,7 @@ export const products = pgTable(
         inventory: integer('inventory').notNull().default(0),
         isDigital: boolean('is_digital').notNull().default(false),
         assetUrl: text('asset_url'),
-        imageUrl: text('image_url'), // ← ADDED
+        imageUrl: text('image_url'),
         createdAt: timestamp('created_at').defaultNow().notNull(),
         updatedAt: timestamp('updated_at').defaultNow().notNull(),
     },
@@ -117,6 +161,27 @@ export const products = pgTable(
             table.slug
         ),
         storeIdx: index('products_store_id_idx').on(table.storeId),
+    })
+);
+
+// ------------------------------------------------------------------
+// Product ↔ Category junction (many-to-many)
+// ------------------------------------------------------------------
+export const productCategories = pgTable(
+    'product_categories',
+    {
+        productId: uuid('product_id')
+            .notNull()
+            .references(() => products.id, { onDelete: 'cascade' }),
+        categoryId: uuid('category_id')
+            .notNull()
+            .references(() => categories.id, { onDelete: 'cascade' }),
+    },
+    (table) => ({
+        pk: primaryKey({ columns: [table.productId, table.categoryId] }),
+        categoryIdx: index('product_categories_category_id_idx').on(
+            table.categoryId
+        ),
     })
 );
 

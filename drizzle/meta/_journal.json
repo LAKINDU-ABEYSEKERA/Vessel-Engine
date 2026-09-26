@@ -15,6 +15,27 @@
       "when": 1790258302106,
       "tag": "0001_wonderful_morbius",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790291923440,
+      "tag": "0002_minor_bloodscream",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1790296018881,
+      "tag": "0003_mysterious_krista_starr",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790414871843,
+      "tag": "0004_huge_jean_grey",
+      "breakpoints": true
     }
   ]
 }

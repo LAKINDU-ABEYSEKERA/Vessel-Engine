@@ -1,77 +1,127 @@
 import { unstable_cache } from 'next/cache';
-import { eq } from 'drizzle-orm';
+import { and, asc, eq, isNull } from 'drizzle-orm';
 import { db } from '@/db';
-import { stores, products } from '@/db/schema';
+import { categories, productCategories, products, stores } from '@/db/schema';
 
 export const storefrontTags = {
-  store: (subdomain: string) => `store-${subdomain}`,
-  products: (storeId: string) => `products-${storeId}`,
+    store: (subdomain: string) => `store-${subdomain}`,
+    products: (storeId: string) => `products-${storeId}`,
+    categories: (storeId: string) => `categories-${storeId}`,
 };
 
-/**
- * Cache-wrapper memoization.
- *
- * `unstable_cache` needs the per-entity tag baked into the wrapper at
- * construction time. Building a fresh wrapper on every call — as the
- * previous implementation did — pays a per-request setup cost and makes
- * tag registration redundant. We key the wrappers by their entity
- * argument instead, so each distinct subdomain/storeId gets exactly one
- * wrapper for the process lifetime.
- *
- * Bounded by tenant count; even at 10k stores this is a few MB of
- * closures. If you ever need to cap it, wrap with an LRU.
- */
 const tenantStoreCache = new Map<string, () => Promise<unknown>>();
 const storeProductsCache = new Map<string, () => Promise<unknown>>();
+const storeCategoriesCache = new Map<string, () => Promise<unknown>>();
+const productsByCategoryCache = new Map<string, () => Promise<unknown>>();
 
-/**
- * Fetch a tenant store by its subdomain.
- * Cached with tags: `tenant-store`, `store-${subdomain}`. Revalidates every 60s.
- */
 export async function getTenantStore(subdomain: string) {
-  let cached = tenantStoreCache.get(subdomain);
-  if (!cached) {
-    cached = unstable_cache(
-        async () => {
-          const [store] = await db
-              .select()
-              .from(stores)
-              .where(eq(stores.subdomain, subdomain))
-              .limit(1);
-          return store ?? null;
-        },
-        ['tenant-store', subdomain],
-        {
-          tags: ['tenant-store', storefrontTags.store(subdomain)],
-          revalidate: 60,
-        }
-    );
-    tenantStoreCache.set(subdomain, cached);
-  }
-  return cached();
+    let cached = tenantStoreCache.get(subdomain);
+    if (!cached) {
+        cached = unstable_cache(
+            async () => {
+                const [store] = await db
+                    .select()
+                    .from(stores)
+                    .where(
+                        and(eq(stores.subdomain, subdomain), isNull(stores.deletedAt))
+                    )
+                    .limit(1);
+                return store ?? null;
+            },
+            ['tenant-store', subdomain],
+            {
+                tags: ['tenant-store', storefrontTags.store(subdomain)],
+                revalidate: 60,
+            }
+        );
+        tenantStoreCache.set(subdomain, cached);
+    }
+    return cached();
+}
+
+export async function getStoreProducts(storeId: string) {
+    let cached = storeProductsCache.get(storeId);
+    if (!cached) {
+        cached = unstable_cache(
+            async () => {
+                return db.select().from(products).where(eq(products.storeId, storeId));
+            },
+            ['store-products', storeId],
+            {
+                tags: ['store-products', storefrontTags.products(storeId)],
+                revalidate: 60,
+            }
+        );
+        storeProductsCache.set(storeId, cached);
+    }
+    return cached();
+}
+
+export async function getStoreCategories(storeId: string) {
+    let cached = storeCategoriesCache.get(storeId);
+    if (!cached) {
+        cached = unstable_cache(
+            async () => {
+                return db
+                    .select()
+                    .from(categories)
+                    .where(eq(categories.storeId, storeId))
+                    .orderBy(asc(categories.position), asc(categories.name));
+            },
+            ['store-categories', storeId],
+            {
+                tags: ['store-categories', storefrontTags.categories(storeId)],
+                revalidate: 60,
+            }
+        );
+        storeCategoriesCache.set(storeId, cached);
+    }
+    return cached();
 }
 
 /**
- * Fetch all products belonging to a given store.
- * Cached with tags: `store-products`, `products-${storeId}`. Revalidates every 60s.
+ * Returns products in a store filtered by category slug.
+ * Fetches all products in the category, regardless of category type.
  */
-export async function getStoreProducts(storeId: string) {
-  let cached = storeProductsCache.get(storeId);
-  if (!cached) {
-    cached = unstable_cache(
-        async () => {
-          return db
-              .select()
-              .from(products)
-              .where(eq(products.storeId, storeId));
-        },
-        ['store-products', storeId],
-        {
-          tags: ['store-products', storefrontTags.products(storeId)],
-          revalidate: 60,
-        }
-    );
-    storeProductsCache.set(storeId, cached);
-  }
-  return cached();
+export async function getStoreProductsByCategory(
+    storeId: string,
+    categorySlug: string
+) {
+    const cacheKey = `${storeId}:${categorySlug}`;
+    let cached = productsByCategoryCache.get(cacheKey);
+    if (!cached) {
+        cached = unstable_cache(
+            async () => {
+                const rows = await db
+                    .select({ product: products })
+                    .from(products)
+                    .innerJoin(
+                        productCategories,
+                        eq(productCategories.productId, products.id)
+                    )
+                    .innerJoin(
+                        categories,
+                        eq(categories.id, productCategories.categoryId)
+                    )
+                    .where(
+                        and(
+                            eq(products.storeId, storeId),
+                            eq(categories.slug, categorySlug)
+                        )
+                    );
+                return rows.map((r) => r.product);
+            },
+            ['products-by-category', storeId, categorySlug],
+            {
+                tags: [
+                    'store-products',
+                    storefrontTags.products(storeId),
+                    storefrontTags.categories(storeId),
+                ],
+                revalidate: 60,
+            }
+        );
+        productsByCategoryCache.set(cacheKey, cached);
+    }
+    return cached();
 }

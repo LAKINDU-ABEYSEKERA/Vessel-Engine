@@ -23,6 +23,14 @@ export type StoreProduct = {
     imageUrl: string | null;
 };
 
+export type StoreCategory = {
+    id: string;
+    name: string;
+    slug: string;
+    type: string;
+    position: number;
+};
+
 export type TenantStore = {
     id: string;
     name: string;
@@ -70,6 +78,22 @@ export type RawStore = {
     logoUrl?: string | null;
     logo?: string | null;
 };
+
+export function normalizeCategory(raw: {
+    id: string | number;
+    name: string;
+    slug: string;
+    type: string;
+    position: number;
+}): StoreCategory {
+    return {
+        id: String(raw.id),
+        name: raw.name,
+        slug: raw.slug,
+        type: raw.type,
+        position: raw.position,
+    };
+}
 
 /* -------------------------------------------------------------------------- */
 /*  Normalizers                                                                */

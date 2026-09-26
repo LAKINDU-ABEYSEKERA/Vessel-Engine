@@ -16,7 +16,10 @@ if (!connectionString) {
 export const client =
     globalForDb.client ??
     postgres(connectionString, {
-        max: 1,
+        max: 10,
+        idle_timeout: 20,
+        connect_timeout: 10,
+        prepare: false, // Required for Supabase transaction pooler (PgBouncer)
     });
 
 if (process.env.NODE_ENV !== 'production') {
