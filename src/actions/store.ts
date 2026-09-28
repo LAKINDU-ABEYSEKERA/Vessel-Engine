@@ -2,7 +2,7 @@
 
 import { and, eq, isNull, ne } from 'drizzle-orm';
 import { revalidatePath, revalidateTag } from 'next/cache';
-import { after } from 'next/server';
+
 
 import { auth } from '@/auth';
 import { db } from '@/db';
@@ -131,15 +131,13 @@ export async function createStore(formData: FormData): Promise<CreateStoreResult
             .values({ userId, name, subdomain })
             .returning({ subdomain: stores.subdomain });
 
-        after(() => {
-            try {
-                revalidatePath('/app');
-                revalidateTag('tenant-store', 'max');
-                revalidateTag(`store-${created.subdomain}`, 'max');
-            } catch (err) {
-                console.error('[createStore revalidate]', err);
-            }
-        });
+        try {
+            revalidatePath('/app');
+            revalidateTag('tenant-store', 'max');
+            revalidateTag(`store-${created.subdomain}`, 'max');
+        } catch (err) {
+            console.error('[createStore revalidate]', err);
+        }
 
         return { ok: true, subdomain: created.subdomain };
     } catch (err) {
@@ -207,20 +205,18 @@ export async function updateStore(
             .set({ name, subdomain: newSubdomain, updatedAt: new Date() })
             .where(eq(stores.id, store.id));
 
-        after(() => {
-            try {
-                revalidateTag(`store-${store.subdomain}`, 'max');
-                revalidateTag(`store-${newSubdomain}`, 'max');
-                revalidateTag('tenant-store', 'max');
-                revalidatePath('/app');
-                revalidatePath(`/app/stores/${newSubdomain}`, 'layout');
-                if (subdomainChanged) {
-                    revalidatePath(`/app/stores/${store.subdomain}`, 'layout');
-                }
-            } catch (err) {
-                console.error('[updateStore revalidate]', err);
+        try {
+            revalidateTag(`store-${store.subdomain}`, 'max');
+            revalidateTag(`store-${newSubdomain}`, 'max');
+            revalidateTag('tenant-store', 'max');
+            revalidatePath('/app');
+            revalidatePath(`/app/stores/${newSubdomain}`, 'layout');
+            if (subdomainChanged) {
+                revalidatePath(`/app/stores/${store.subdomain}`, 'layout');
             }
-        });
+        } catch (err) {
+            console.error('[updateStore revalidate]', err);
+        }
 
         return { ok: true, subdomain: newSubdomain };
     } catch (err) {
@@ -257,16 +253,14 @@ export async function deleteStore(
             .set({ deletedAt: new Date(), updatedAt: new Date() })
             .where(eq(stores.id, store.id));
 
-        after(() => {
-            try {
-                revalidateTag(`store-${store.subdomain}`, 'max');
-                revalidateTag('tenant-store', 'max');
-                revalidatePath('/app');
-                revalidatePath('/app', 'layout');
-            } catch (err) {
-                console.error('[deleteStore revalidate]', err);
-            }
-        });
+        try {
+            revalidateTag(`store-${store.subdomain}`, 'max');
+            revalidateTag('tenant-store', 'max');
+            revalidatePath('/app');
+            revalidatePath('/app', 'layout');
+        } catch (err) {
+            console.error('[deleteStore revalidate]', err);
+        }
 
         return { ok: true };
     } catch (err) {

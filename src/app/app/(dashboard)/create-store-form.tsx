@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Store, Loader2, ArrowRight, AlertCircle } from 'lucide-react';
 
 import { createStore, type CreateStoreResult } from '@/actions/store';
@@ -21,7 +22,8 @@ interface FieldErrors {
 /*  Component                                                                  */
 /* -------------------------------------------------------------------------- */
 
-export function CreateStoreForm() {
+export function CreateStoreForm({ onSuccess }: { onSuccess?: () => void } = {}) {
+    const router = useRouter();
     const [pending, setPending] = useState(false);
     const [errors, setErrors] = useState<FieldErrors>({});
     const [subdomain, setSubdomain] = useState('');
@@ -53,9 +55,13 @@ export function CreateStoreForm() {
         }
 
         if (res.ok) {
-            // Success — the Server Action called revalidatePath('/app'),
-            // so the parent page re-renders in "active dashboard" mode
-            // and unmounts this form. No client-side navigation needed.
+            // Tell the parent to close the form. Direct client-state change —
+            // deterministic, no reliance on router timing or RSC refetches.
+            onSuccess?.();
+
+            // Refresh the server data so the store grid shows the new store.
+            router.refresh();
+
             return;
         }
 

@@ -1,11 +1,12 @@
-import { signIn, signOut, auth } from "@/auth";
 import Link from "next/link";
+import { signOut, auth } from "@/auth";
 import { ArrowLeft, ArrowRight, LogOut, Store } from "lucide-react";
 
 import { PLATFORM_URL } from "@/lib/config";
-import { CredentialsForm } from "./credentials-form";
 
-export default async function LoginPage() {
+import { SignupForm } from "./signup-form";
+
+export default async function SignupPage() {
     const session = await auth();
 
     return (
@@ -48,7 +49,7 @@ export default async function LoginPage() {
                                 <span className="font-medium text-zinc-200">
                                     {session.user.email ?? session.user.name ?? "your account"}
                                 </span>
-                                .
+                                . Sign out below to create a separate account.
                             </p>
 
                             <Link
@@ -63,7 +64,7 @@ export default async function LoginPage() {
                                 className="w-full mt-3"
                                 action={async () => {
                                     "use server";
-                                    await signOut({ redirectTo: "/app/login" });
+                                    await signOut({ redirectTo: "/app/signup" });
                                 }}
                             >
                                 <button
@@ -71,55 +72,28 @@ export default async function LoginPage() {
                                     className="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900/60 px-4 py-3 text-xs font-medium text-zinc-400 transition hover:border-zinc-700 hover:bg-zinc-900 hover:text-zinc-200 cursor-pointer"
                                 >
                                     <LogOut className="h-3.5 w-3.5" />
-                                    Sign out and use a different account
+                                    Sign out and create a new account
                                 </button>
                             </form>
                         </>
                     ) : (
                         <>
                             <h1 className="text-2xl font-semibold tracking-tight text-white mb-2">
-                                Welcome back
+                                Create your account
                             </h1>
                             <p className="text-sm text-zinc-400 mb-8">
-                                Sign in to manage your storefronts.
+                                Start selling in minutes. Free forever on the basic tier.
                             </p>
 
-                            <CredentialsForm />
-
-                            <div className="relative my-6 w-full">
-                                <div className="absolute inset-0 flex items-center">
-                                    <span className="w-full border-t border-zinc-800" />
-                                </div>
-                                <div className="relative flex justify-center text-[11px] uppercase tracking-wider">
-                                    <span className="bg-zinc-950 px-2 text-zinc-600">or</span>
-                                </div>
-                            </div>
-
-                            <form
-                                className="w-full"
-                                action={async () => {
-                                    "use server";
-                                    await signIn("google", { redirectTo: "/app" });
-                                }}
-                            >
-                                <button
-                                    type="submit"
-                                    className="flex w-full items-center justify-center gap-3 rounded-xl border border-zinc-800 bg-zinc-900/60 px-4 py-3.5 text-sm font-semibold text-zinc-100 transition hover:border-zinc-700 hover:bg-zinc-900 cursor-pointer"
-                                >
-                                    <svg className="h-5 w-5" viewBox="0 0 24 24">
-                                        <path fill="#4285F4" d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z" />
-                                        <path fill="#34A853" d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z" />
-                                        <path fill="#FBBC05" d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.18 0 10.04 0 12s.45 3.82 1.25 5.42l4.03-3.15z" />
-                                        <path fill="#EA4335" d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z" />
-                                    </svg>
-                                    Continue with Google
-                                </button>
-                            </form>
+                            <SignupForm />
 
                             <p className="mt-6 text-sm text-zinc-500">
-                                Don&apos;t have an account?{" "}
-                                <Link href="/app/signup" className="font-medium text-zinc-200 hover:text-white">
-                                    Create one
+                                Already have an account?{" "}
+                                <Link
+                                    href="/app/login"
+                                    className="font-medium text-zinc-200 hover:text-white"
+                                >
+                                    Sign in
                                 </Link>
                             </p>
                         </>

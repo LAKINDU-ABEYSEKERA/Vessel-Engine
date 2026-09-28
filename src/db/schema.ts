@@ -50,7 +50,34 @@ export const users = pgTable('user', {
     email: text('email').unique(),
     emailVerified: timestamp('emailVerified', { mode: 'date' }),
     image: text('image'),
+    // --- Phase 1 auth additions ---
+    passwordHash: text('password_hash'),
+    role: text('role').notNull().default('customer'),
+    // --- Phase 3 additions ---
+    avatarUrl: text('avatar_url'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
+
+// ------------------------------------------------------------------
+// Password reset tokens (single-use, hashed)
+// ------------------------------------------------------------------
+export const passwordResetTokens = pgTable(
+    'password_reset_tokens',
+    {
+        id: uuid('id').defaultRandom().primaryKey(),
+        userId: text('user_id')
+            .notNull()
+            .references(() => users.id, { onDelete: 'cascade' }),
+        tokenHash: text('token_hash').notNull().unique(),
+        expiresAt: timestamp('expires_at').notNull(),
+        usedAt: timestamp('used_at'),
+        createdAt: timestamp('created_at').defaultNow().notNull(),
+    },
+    (table) => ({
+        userIdx: index('password_reset_tokens_user_id_idx').on(table.userId),
+    })
+);
 
 export const accounts = pgTable(
     'account',
