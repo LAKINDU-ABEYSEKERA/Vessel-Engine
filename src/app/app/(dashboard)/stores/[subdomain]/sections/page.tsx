@@ -1,7 +1,7 @@
 import { and, asc, count, eq, isNull } from 'drizzle-orm';
 import Link from 'next/link';
 import { LayoutGrid, Pencil, Plus } from 'lucide-react';
-
+import { notFound } from 'next/navigation';
 import { auth } from '@/auth';
 import { db } from '@/db';
 import { categories, productCategories, stores } from '@/db/schema';
@@ -14,9 +14,11 @@ export default async function StoreSectionsPage({
                                                 }: {
     params: Promise<{ subdomain: string }>;
 }) {
+
     const { subdomain } = await params;
     const session = await auth();
-    const userId = session?.user?.id;
+    if (!session?.user?.id) notFound();
+    const userId = session.user.id;
 
     const [store] = await db
         .select()
@@ -24,7 +26,7 @@ export default async function StoreSectionsPage({
         .where(and(eq(stores.subdomain, subdomain), isNull(stores.deletedAt)))
         .limit(1);
 
-    if (!store || store.userId !== userId) return null;
+    if (!store || store.userId !== userId) notFound();
 
     const rows = await db
         .select({

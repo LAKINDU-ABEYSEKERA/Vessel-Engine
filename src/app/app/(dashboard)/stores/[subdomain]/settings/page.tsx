@@ -38,7 +38,7 @@ export default async function StoreSettingsPage({
                     Settings
                 </h2>
                 <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
-                    Manage this storefront's identity and lifecycle.
+                    Manage this storefront&apos;s identity and lifecycle.
                 </p>
             </header>
 

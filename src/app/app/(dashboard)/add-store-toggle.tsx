@@ -1,18 +1,19 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Plus, X } from 'lucide-react';
 
 import { CreateStoreForm } from './create-store-form';
 
+/**
+ * The parent is responsible for resetting this component when
+ * `initialOpen` changes — see `page.tsx`, which passes a changing
+ * `key` based on the `?new=1` query param. This is the React-recommended
+ * "reset state when a prop changes" pattern:
+ *   https://react.dev/learn/you-might-not-need-an-effect#resetting-all-state-when-a-prop-changes
+ */
 export function AddStoreToggle({ initialOpen = false }: { initialOpen?: boolean }) {
     const [open, setOpen] = useState(initialOpen);
-
-    // If the URL changes to ?new=1 while we're already mounted (e.g. user
-    // clicks "Add store" in the sidebar while on /app), reflect it.
-    useEffect(() => {
-        if (initialOpen) setOpen(true);
-    }, [initialOpen]);
 
     if (!open) {
         return (

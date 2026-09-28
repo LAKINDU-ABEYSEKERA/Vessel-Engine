@@ -1,7 +1,26 @@
 import { unstable_cache } from 'next/cache';
-import { and, asc, eq, isNull } from 'drizzle-orm';
+import {
+    and,
+    asc,
+    eq,
+    isNull,
+    type InferSelectModel,
+} from 'drizzle-orm';
+
 import { db } from '@/db';
 import { categories, productCategories, products, stores } from '@/db/schema';
+
+/* -------------------------------------------------------------------------- */
+/*  Row types                                                                  */
+/* -------------------------------------------------------------------------- */
+
+type StoreRow = InferSelectModel<typeof stores>;
+type ProductRow = InferSelectModel<typeof products>;
+type CategoryRow = InferSelectModel<typeof categories>;
+
+/* -------------------------------------------------------------------------- */
+/*  Cache tag helpers                                                          */
+/* -------------------------------------------------------------------------- */
 
 export const storefrontTags = {
     store: (subdomain: string) => `store-${subdomain}`,
@@ -9,12 +28,22 @@ export const storefrontTags = {
     categories: (storeId: string) => `categories-${storeId}`,
 };
 
-const tenantStoreCache = new Map<string, () => Promise<unknown>>();
-const storeProductsCache = new Map<string, () => Promise<unknown>>();
-const storeCategoriesCache = new Map<string, () => Promise<unknown>>();
-const productsByCategoryCache = new Map<string, () => Promise<unknown>>();
+/* -------------------------------------------------------------------------- */
+/*  Cache wrapper memoization                                                  */
+/* -------------------------------------------------------------------------- */
 
-export async function getTenantStore(subdomain: string) {
+const tenantStoreCache = new Map<string, () => Promise<StoreRow | null>>();
+const storeProductsCache = new Map<string, () => Promise<ProductRow[]>>();
+const storeCategoriesCache = new Map<string, () => Promise<CategoryRow[]>>();
+const productsByCategoryCache = new Map<string, () => Promise<ProductRow[]>>();
+
+/* -------------------------------------------------------------------------- */
+/*  Queries                                                                    */
+/* -------------------------------------------------------------------------- */
+
+export async function getTenantStore(
+    subdomain: string
+): Promise<StoreRow | null> {
     let cached = tenantStoreCache.get(subdomain);
     if (!cached) {
         cached = unstable_cache(
@@ -23,7 +52,10 @@ export async function getTenantStore(subdomain: string) {
                     .select()
                     .from(stores)
                     .where(
-                        and(eq(stores.subdomain, subdomain), isNull(stores.deletedAt))
+                        and(
+                            eq(stores.subdomain, subdomain),
+                            isNull(stores.deletedAt)
+                        )
                     )
                     .limit(1);
                 return store ?? null;
@@ -39,12 +71,17 @@ export async function getTenantStore(subdomain: string) {
     return cached();
 }
 
-export async function getStoreProducts(storeId: string) {
+export async function getStoreProducts(
+    storeId: string
+): Promise<ProductRow[]> {
     let cached = storeProductsCache.get(storeId);
     if (!cached) {
         cached = unstable_cache(
             async () => {
-                return db.select().from(products).where(eq(products.storeId, storeId));
+                return db
+                    .select()
+                    .from(products)
+                    .where(eq(products.storeId, storeId));
             },
             ['store-products', storeId],
             {
@@ -57,7 +94,9 @@ export async function getStoreProducts(storeId: string) {
     return cached();
 }
 
-export async function getStoreCategories(storeId: string) {
+export async function getStoreCategories(
+    storeId: string
+): Promise<CategoryRow[]> {
     let cached = storeCategoriesCache.get(storeId);
     if (!cached) {
         cached = unstable_cache(
@@ -79,14 +118,10 @@ export async function getStoreCategories(storeId: string) {
     return cached();
 }
 
-/**
- * Returns products in a store filtered by category slug.
- * Fetches all products in the category, regardless of category type.
- */
 export async function getStoreProductsByCategory(
     storeId: string,
     categorySlug: string
-) {
+): Promise<ProductRow[]> {
     const cacheKey = `${storeId}:${categorySlug}`;
     let cached = productsByCategoryCache.get(cacheKey);
     if (!cached) {

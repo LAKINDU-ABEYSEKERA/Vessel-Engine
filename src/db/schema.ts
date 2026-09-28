@@ -5,6 +5,7 @@ import {
     timestamp,
     integer,
     boolean,
+    jsonb,
     uniqueIndex,
     index,
     primaryKey,
@@ -13,6 +14,30 @@ import {
 import { randomUUID } from 'crypto';
 import { sql } from 'drizzle-orm';
 import type { AdapterAccountType } from 'next-auth/adapters';
+
+// ------------------------------------------------------------------
+// Stripe webhook event log (append-only)
+// ------------------------------------------------------------------
+/**
+ * Every Stripe webhook event is recorded here before processing.
+ *
+ * - `event_id` is unique — a second delivery of the same event is a no-op.
+ * - `processed_at` is NULL until the event has been handled successfully.
+ *   A row with `processed_at IS NULL` means an event arrived but never
+ *   completed — a signal for operational investigation.
+ * - `data` holds the full event payload for replay and audit.
+ *
+ * This table is intentionally NOT scoped to a store — Stripe events are
+ * platform-level and may or may not reference a tenant.
+ */
+export const stripeEvents = pgTable('stripe_events', {
+    id: uuid('id').defaultRandom().primaryKey(),
+    eventId: text('event_id').notNull().unique(),
+    type: text('type').notNull(),
+    data: jsonb('data').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    processedAt: timestamp('processed_at'),
+});
 
 // ------------------------------------------------------------------
 // Auth.js tables

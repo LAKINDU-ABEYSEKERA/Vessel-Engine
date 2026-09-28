@@ -107,7 +107,15 @@ export default async function CreatorDashboardPage({
             </div>
 
             <div className="mt-8">
-                <AddStoreToggle initialOpen={forceOpenForm} />
+                {/*
+                 * The `key` forces a remount when the user navigates from
+                 * `/app` to `/app?new=1` — resetting the internal `open`
+                 * state to match the new prop.
+                 */}
+                <AddStoreToggle
+                    key={forceOpenForm ? 'open' : 'closed'}
+                    initialOpen={forceOpenForm}
+                />
             </div>
         </div>
     );

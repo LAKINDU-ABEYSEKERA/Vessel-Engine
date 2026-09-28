@@ -1,12 +1,14 @@
 import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import { and, eq, isNull } from 'drizzle-orm';
-import { ArrowLeft, ArrowUpRight } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 
 import { auth } from '@/auth';
 import { db } from '@/db';
 import { stores } from '@/db/schema';
+import { BASE_DOMAIN } from '@/lib/config';
 
+import { CopyStorefrontLinkButton } from './copy-button';
 import { StoreSubNav } from './store-sub-nav';
 
 export default async function StoreLayout({
@@ -39,6 +41,14 @@ export default async function StoreLayout({
         notFound();
     }
 
+    // Compute the public-facing storefront URL for the copy/open actions.
+    // Dev uses localhost so the wildcard DNS alias resolves; production uses
+    // the real base domain.
+    const isDev = process.env.NODE_ENV === 'development';
+    const storefrontUrl = isDev
+        ? `http://${store.subdomain}.localhost:3000`
+        : `https://${store.subdomain}.${BASE_DOMAIN}`;
+
     return (
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
             {/* -------------------------------------------------------- */}
@@ -60,19 +70,11 @@ export default async function StoreLayout({
                             {store.name}
                         </h1>
                         <p className="text-sm text-zinc-500 font-mono mt-1 truncate">
-                            {store.subdomain}.vesselengine.com
+                            {store.subdomain}.{isDev ? 'localhost:3000' : BASE_DOMAIN}
                         </p>
                     </div>
 
-                    <a
-                        href={`http://${store.subdomain}.localhost:3000`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 px-3.5 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 transition hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-900 shrink-0"
-                    >
-                        View storefront
-                        <ArrowUpRight className="h-3.5 w-3.5" />
-                    </a>
+                    <CopyStorefrontLinkButton url={storefrontUrl} />
                 </div>
 
                 <StoreSubNav subdomain={subdomain} />

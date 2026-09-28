@@ -54,8 +54,8 @@ export function CreateStoreForm() {
 
         if (res.ok) {
             // Success — the Server Action called revalidatePath('/app'),
-            // so the parent page will re-render in "active dashboard" mode
-            // and unmount this form. No client-side navigation needed.
+            // so the parent page re-renders in "active dashboard" mode
+            // and unmounts this form. No client-side navigation needed.
             return;
         }
 

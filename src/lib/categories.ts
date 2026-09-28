@@ -5,7 +5,6 @@ import {
     Cpu,
     Download,
     Home,
-    Package,
     Palette,
     Shirt,
     Sparkles,
@@ -45,16 +44,66 @@ interface TypeMeta {
 }
 
 export const CATEGORY_TYPE_META: Record<CategoryType, TypeMeta> = {
-    clothing: { label: 'Clothing', icon: Shirt, color: 'text-rose-400', bg: 'bg-rose-500/10' },
-    electronics: { label: 'Electronics', icon: Cpu, color: 'text-sky-400', bg: 'bg-sky-500/10' },
-    digital: { label: 'Digital', icon: Download, color: 'text-indigo-400', bg: 'bg-indigo-500/10' },
-    home: { label: 'Home', icon: Home, color: 'text-amber-400', bg: 'bg-amber-500/10' },
-    beauty: { label: 'Beauty', icon: Sparkles, color: 'text-pink-400', bg: 'bg-pink-500/10' },
-    books: { label: 'Books', icon: Book, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
-    art: { label: 'Art', icon: Palette, color: 'text-fuchsia-400', bg: 'bg-fuchsia-500/10' },
-    food: { label: 'Food', icon: Utensils, color: 'text-orange-400', bg: 'bg-orange-500/10' },
-    photography: { label: 'Photography', icon: Camera, color: 'text-cyan-400', bg: 'bg-cyan-500/10' },
-    other: { label: 'Other', icon: Box, color: 'text-zinc-400', bg: 'bg-zinc-500/10' },
+    clothing: {
+        label: 'Clothing',
+        icon: Shirt,
+        color: 'text-rose-400',
+        bg: 'bg-rose-500/10',
+    },
+    electronics: {
+        label: 'Electronics',
+        icon: Cpu,
+        color: 'text-sky-400',
+        bg: 'bg-sky-500/10',
+    },
+    digital: {
+        label: 'Digital',
+        icon: Download,
+        color: 'text-indigo-400',
+        bg: 'bg-indigo-500/10',
+    },
+    home: {
+        label: 'Home',
+        icon: Home,
+        color: 'text-amber-400',
+        bg: 'bg-amber-500/10',
+    },
+    beauty: {
+        label: 'Beauty',
+        icon: Sparkles,
+        color: 'text-pink-400',
+        bg: 'bg-pink-500/10',
+    },
+    books: {
+        label: 'Books',
+        icon: Book,
+        color: 'text-emerald-400',
+        bg: 'bg-emerald-500/10',
+    },
+    art: {
+        label: 'Art',
+        icon: Palette,
+        color: 'text-fuchsia-400',
+        bg: 'bg-fuchsia-500/10',
+    },
+    food: {
+        label: 'Food',
+        icon: Utensils,
+        color: 'text-orange-400',
+        bg: 'bg-orange-500/10',
+    },
+    photography: {
+        label: 'Photography',
+        icon: Camera,
+        color: 'text-cyan-400',
+        bg: 'bg-cyan-500/10',
+    },
+    other: {
+        label: 'Other',
+        icon: Box,
+        color: 'text-zinc-400',
+        bg: 'bg-zinc-500/10',
+    },
 };
 
 export function getCategoryMeta(type: string): TypeMeta {

@@ -73,12 +73,21 @@ export default async function DashboardLayout({
                 {/* Profile + logout */}
                 <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 shrink-0">
                     <div className="flex items-center gap-3 px-1 py-2">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                            src={session.user.image || ''}
-                            alt=""
-                            className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-800"
-                        />
+                        {session.user.image ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                                src={session.user.image}
+                                alt=""
+                                className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-800"
+                            />
+                        ) : (
+                            <div
+                                className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center text-xs font-medium text-zinc-500 dark:text-zinc-400"
+                                aria-hidden="true"
+                            >
+                                {(session.user.name ?? '?').slice(0, 1).toUpperCase()}
+                            </div>
+                        )}
                         <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-zinc-900 dark:text-white truncate">
                                 {session.user.name}

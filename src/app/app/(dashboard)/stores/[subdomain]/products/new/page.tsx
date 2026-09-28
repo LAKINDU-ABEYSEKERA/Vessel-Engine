@@ -1,4 +1,5 @@
-import { eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
+import { notFound } from 'next/navigation';
 
 import { auth } from '@/auth';
 import { db } from '@/db';
@@ -14,15 +15,21 @@ export default async function NewProductPage({
 }) {
     const { subdomain } = await params;
     const session = await auth();
-    if (!session?.user?.id) return null;
+    if (!session?.user?.id) notFound();
 
     const [store] = await db
         .select({ id: stores.id })
         .from(stores)
-        .where(eq(stores.subdomain, subdomain))
+        .where(
+            and(
+                eq(stores.subdomain, subdomain),
+                eq(stores.userId, session.user.id),
+                isNull(stores.deletedAt)
+            )
+        )
         .limit(1);
 
-    if (!store) return null;
+    if (!store) notFound();
 
     const cats = await db
         .select()

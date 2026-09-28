@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    name: Build & Guardrails
+    runs-on: ubuntu-latest
+
+    env:
+      # ------------------------------------------------------------------
+      # Dummy values — these only need to exist so that modules which throw
+      # on missing env (`src/db/index.ts`, `src/lib/stripe.ts`,
+      # `src/lib/s3.ts`) don't fail during Next.js build-time module
+      # evaluation. Real values live in Vercel / deployment platform.
+      # ------------------------------------------------------------------
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+      AUTH_SECRET: ci-dummy-secret-for-build-only-min-32-chars-ok
+      AUTH_URL: http://localhost:3000
+      AUTH_TRUST_HOST: "true"
+      AUTH_GOOGLE_ID: ci-dummy.apps.googleusercontent.com
+      AUTH_GOOGLE_SECRET: ci-dummy-secret
+      STRIPE_SECRET_KEY: sk_test_ci_dummy_key_for_build_only
+      STRIPE_WEBHOOK_SECRET: whsec_ci_dummy_secret_for_build_only
+      S3_REGION: auto
+      S3_ENDPOINT: https://ci-dummy.r2.cloudflarestorage.com
+      S3_ACCESS_KEY_ID: ci_dummy_access_key
+      S3_SECRET_ACCESS_KEY: ci_dummy_secret_key
+      S3_BUCKET_NAME: ci-dummy-bucket
+      NEXT_PUBLIC_S3_PUBLIC_URL: https://ci-dummy.r2.dev
+      NEXT_PUBLIC_ROOT_DOMAIN: vesselengine.com
+      BASE_DOMAIN: vesselengine.com
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      # ------------------------------------------------------------------
+      # Guardrail: forbid shadcn/ui imports under src/app/
+      #
+      # This project does not use shadcn/ui. Any import from
+      # `@/components/ui/` under src/app/ is either a v0 mock that landed
+      # in the wrong place, or a hallucinated import. Fail the build.
+      # ------------------------------------------------------------------
+      - name: Guardrail — no shadcn imports under src/app/
+        run: |
+          set -e
+          if grep -rn 'from "@/components/ui/' src/app/ \
+              --include="*.ts" --include="*.tsx"; then
+            echo "::error::Shadcn UI import detected under src/app/. This project does not use shadcn/ui. See the CI workflow for details."
+            exit 1
+          fi
+          echo "✓ No shadcn imports under src/app/."
+
+      # ------------------------------------------------------------------
+      # Guardrail: no "use client" at the top of route pages or layouts.
+      #
+      # Belt-and-braces with the ESLint rule — this catches the pattern
+      # even if someone disables the rule inline.
+      # ------------------------------------------------------------------
+      - name: Guardrail — no "use client" in route pages/layouts
+        run: |
+          set -e
+          MATCHES=$(grep -rln '^"use client"\|^'\''use client'\''' \
+              src/app/app/ src/app/sites/ \
+              --include="page.tsx" --include="layout.tsx" || true)
+
+          if [ -n "$MATCHES" ]; then
+            echo "::error::\"use client\" detected in route page/layout files:"
+            echo "$MATCHES"
+            echo "These files must remain Server Components. Move client code to src/components/."
+            exit 1
+          fi
+          echo "✓ No \"use client\" directives in route pages/layouts."
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build

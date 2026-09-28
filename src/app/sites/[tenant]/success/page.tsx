@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type Stripe from "stripe";
+import { PLATFORM_URL } from '@/lib/config';
 import {
     ArrowLeft,
     ArrowUpRight,
@@ -172,11 +173,16 @@ export default async function OrderSuccessPage({ params, searchParams }: PagePro
                     <p className="text-sm text-zinc-500">
                         Questions about this order? Reply to your receipt email.
                     </p>
-                    <p className="inline-flex items-center gap-2 text-sm text-zinc-600">
+                    <Link
+                        href={PLATFORM_URL}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-2 text-sm text-zinc-600 transition hover:text-zinc-400"
+                    >
                         <Store className="h-3.5 w-3.5" strokeWidth={1.75} />
                         Powered by
                         <span className="font-medium tracking-tight text-zinc-400">Vessel Engine</span>
-                    </p>
+                    </Link>
                 </div>
             </footer>
         </div>

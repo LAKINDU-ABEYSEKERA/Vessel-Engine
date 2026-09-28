@@ -36,6 +36,13 @@
       "when": 1790414871843,
       "tag": "0004_huge_jean_grey",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790500000000,
+      "tag": "0005_stripe_events",
+      "breakpoints": true
     }
   ]
 }

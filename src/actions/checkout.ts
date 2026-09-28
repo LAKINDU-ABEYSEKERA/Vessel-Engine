@@ -2,7 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { headers } from 'next/headers';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { db } from '@/db';
 import { products, stores } from '@/db/schema';
 import { stripe } from '@/lib/stripe';
@@ -53,8 +53,14 @@ export async function createCheckoutSession(
     const [store] = await db
         .select({ id: stores.id, subdomain: stores.subdomain })
         .from(stores)
-        .where(eq(stores.subdomain, tenantSlug))
+        .where(
+            and(
+                eq(stores.subdomain, tenantSlug),
+                isNull(stores.deletedAt)
+            )
+        )
         .limit(1);
+
 
     if (!store) {
         throw new Error(`Storefront "${tenantSlug}" not found.`);

@@ -1,7 +1,13 @@
-"use client";
+'use client';
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import {
+    useCallback,
+    useEffect,
+    useRef,
+    useState,
+    useSyncExternalStore,
+} from 'react';
+import { createPortal } from 'react-dom';
 import {
     ArrowRight,
     Loader2,
@@ -11,12 +17,41 @@ import {
     Trash2,
     X,
     Package,
-    Download
-} from "lucide-react";
-import { toast } from "sonner";
-import { createCheckoutSession } from "@/actions/checkout";
-import { useCart } from "@/components/storefront/cart-provider";
-import { cx, formatUSD } from "@/lib/storefront";
+    Download,
+} from 'lucide-react';
+import { toast } from 'sonner';
+
+import { createCheckoutSession } from '@/actions/checkout';
+import { useCart } from '@/components/storefront/cart-provider';
+import { cx, formatUSD } from '@/lib/storefront';
+
+/* -------------------------------------------------------------------------- */
+/*  Mount detection (hydration-safe)                                           */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Returns false on the server and during the first client render (so
+ * the markup matches the server), then true after hydration. This
+ * replaces the older `useState(false) + useEffect(setMounted(true))`
+ * pattern, which triggers the `react-hooks/set-state-in-effect` lint rule.
+ *
+ * Module-scoped so the subscribe / getSnapshot identities are stable.
+ */
+const emptySubscribe = () => () => {};
+const getClientMounted = () => true;
+const getServerMounted = () => false;
+
+function useIsMounted() {
+    return useSyncExternalStore(
+        emptySubscribe,
+        getClientMounted,
+        getServerMounted
+    );
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Keyframes                                                                  */
+/* -------------------------------------------------------------------------- */
 
 const CART_KEYFRAMES = `
 @keyframes vessel-count-pop {
@@ -40,6 +75,10 @@ const CART_KEYFRAMES = `
 }
 `;
 
+/* -------------------------------------------------------------------------- */
+/*  CartButton                                                                 */
+/* -------------------------------------------------------------------------- */
+
 export function CartButton() {
     const { itemCount, subtotal, hydrated } = useCart();
     const [open, setOpen] = useState(false);
@@ -51,15 +90,18 @@ export function CartButton() {
             <button
                 type="button"
                 onClick={() => setOpen(true)}
-                aria-label={itemCount > 0 ? `Open cart, ${itemCount} items` : "Open cart"}
+                aria-label={itemCount > 0 ? `Open cart, ${itemCount} items` : 'Open cart'}
                 className={cx(
-                    "group relative inline-flex h-10 items-center gap-2 rounded-full border border-zinc-800/80",
-                    "bg-zinc-900/60 pl-4 pr-1.5 text-sm font-medium tracking-tight text-zinc-200",
-                    "transition duration-200 hover:border-zinc-700 hover:bg-zinc-900 hover:text-zinc-50",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 cursor-pointer",
+                    'group relative inline-flex h-10 items-center gap-2 rounded-full border border-zinc-800/80',
+                    'bg-zinc-900/60 pl-4 pr-1.5 text-sm font-medium tracking-tight text-zinc-200',
+                    'transition duration-200 hover:border-zinc-700 hover:bg-zinc-900 hover:text-zinc-50',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 cursor-pointer'
                 )}
             >
-                <ShoppingBag className="h-4 w-4 text-zinc-400 transition-colors group-hover:text-zinc-200" strokeWidth={1.75} />
+                <ShoppingBag
+                    className="h-4 w-4 text-zinc-400 transition-colors group-hover:text-zinc-200"
+                    strokeWidth={1.75}
+                />
                 <span className="hidden sm:inline pr-1">Cart</span>
 
                 {hydrated && itemCount > 0 ? (
@@ -83,31 +125,31 @@ export function CartButton() {
     );
 }
 
+/* -------------------------------------------------------------------------- */
+/*  CartPanel                                                                  */
+/* -------------------------------------------------------------------------- */
+
 function CartPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
     const { lines, itemCount, subtotal, setQuantity, remove, clear, storeName } = useCart();
     const [checkingOut, setCheckingOut] = useState(false);
-    const [mounted, setMounted] = useState(false);
+    const mounted = useIsMounted();
     const closeRef = useRef<HTMLButtonElement>(null);
-
-    useEffect(() => {
-        setMounted(true);
-    }, []);
 
     useEffect(() => {
         if (!open) return;
 
         function onKeyDown(event: KeyboardEvent) {
-            if (event.key === "Escape") onClose();
+            if (event.key === 'Escape') onClose();
         }
 
         const previousOverflow = document.body.style.overflow;
-        document.body.style.overflow = "hidden";
-        document.addEventListener("keydown", onKeyDown);
+        document.body.style.overflow = 'hidden';
+        document.addEventListener('keydown', onKeyDown);
         closeRef.current?.focus();
 
         return () => {
             document.body.style.overflow = previousOverflow;
-            document.removeEventListener("keydown", onKeyDown);
+            document.removeEventListener('keydown', onKeyDown);
         };
     }, [open, onClose]);
 
@@ -115,7 +157,7 @@ function CartPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
         setCheckingOut(true);
         try {
             const host = window.location.host;
-            const tenantSlug = host.split(".")[0];
+            const tenantSlug = host.split('.')[0];
 
             const payload = lines.map((line) => ({
                 id: line.productId,
@@ -127,15 +169,16 @@ function CartPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
             const err = error as { message?: string; digest?: string } | undefined;
 
             if (
-                err?.message === "NEXT_REDIRECT" ||
-                (typeof err?.digest === "string" && err.digest.startsWith("NEXT_REDIRECT"))
+                err?.message === 'NEXT_REDIRECT' ||
+                (typeof err?.digest === 'string' &&
+                    err.digest.startsWith('NEXT_REDIRECT'))
             ) {
                 throw error;
             }
 
             setCheckingOut(false);
             toast.error("Checkout didn't start", {
-                description: "Your cart is saved. Try again in a moment.",
+                description: 'Your cart is saved. Try again in a moment.',
             });
         }
     }, [lines]);
@@ -143,26 +186,30 @@ function CartPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
     if (!open || !mounted) return null;
 
     return createPortal(
-        <div className="fixed inset-0 z-[9999] flex justify-end" role="dialog" aria-modal="true" aria-label="Cart">
-            {/* Backdrop */}
+        <div
+            className="fixed inset-0 z-[9999] flex justify-end"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Cart"
+        >
             <div
                 className="vessel-scrim-in fixed inset-0 bg-black/75 backdrop-blur-sm"
                 onClick={onClose}
             />
 
-            {/* Slide-over Drawer Panel */}
             <div
                 className={cx(
-                    "vessel-panel-in relative z-10 flex h-full h-dvh w-full max-w-md flex-col",
-                    "border-l border-zinc-800/80 bg-zinc-950 shadow-2xl shadow-black/80",
+                    'vessel-panel-in relative z-10 flex h-full h-dvh w-full max-w-md flex-col',
+                    'border-l border-zinc-800/80 bg-zinc-950 shadow-2xl shadow-black/80'
                 )}
             >
-                {/* Drawer Header */}
                 <header className="flex shrink-0 items-center justify-between border-b border-zinc-800/80 px-6 py-5">
                     <div className="flex items-center gap-3">
-                        <h2 className="text-base font-semibold tracking-tight text-zinc-100">Your cart</h2>
+                        <h2 className="text-base font-semibold tracking-tight text-zinc-100">
+                            Your cart
+                        </h2>
                         <span className="font-mono text-xs tabular-nums text-zinc-400 bg-zinc-900 px-2.5 py-0.5 rounded-full border border-zinc-800">
-                            {itemCount} {itemCount === 1 ? "item" : "items"}
+                            {itemCount} {itemCount === 1 ? 'item' : 'items'}
                         </span>
                     </div>
                     <div className="flex items-center gap-2">
@@ -187,14 +234,15 @@ function CartPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
                     </div>
                 </header>
 
-                {/* Drawer Content */}
                 {lines.length === 0 ? (
                     <div className="flex flex-1 flex-col items-center justify-center gap-4 px-8 text-center">
                         <div className="rounded-full border border-zinc-800/80 bg-zinc-900/50 p-5 shadow-inner">
                             <ShoppingBag className="h-8 w-8 text-zinc-600" strokeWidth={1.5} />
                         </div>
                         <div>
-                            <p className="text-base font-medium text-zinc-200">Your cart is empty.</p>
+                            <p className="text-base font-medium text-zinc-200">
+                                Your cart is empty.
+                            </p>
                             <p className="max-w-[24ch] text-sm leading-relaxed text-zinc-500 mt-1">
                                 Add something from the {storeName} collection to get started.
                             </p>
@@ -233,7 +281,11 @@ function CartPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
                                                 {line.name}
                                             </p>
                                             <p className="mt-0.5 flex items-center gap-1.5 font-mono text-[10px] font-medium tracking-tight text-zinc-500 uppercase">
-                                                {line.kind === 'digital' ? <Download size={10} className="text-indigo-400" /> : <Package size={10} className="text-emerald-400" />}
+                                                {line.kind === 'digital' ? (
+                                                    <Download size={10} className="text-indigo-400" />
+                                                ) : (
+                                                    <Package size={10} className="text-emerald-400" />
+                                                )}
                                                 {line.kind}
                                             </p>
                                         </div>
@@ -246,7 +298,9 @@ function CartPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
                                         <div className="inline-flex items-center rounded-lg border border-zinc-700/80 bg-zinc-900/80 p-0.5">
                                             <button
                                                 type="button"
-                                                onClick={() => setQuantity(line.productId, line.quantity - 1)}
+                                                onClick={() =>
+                                                    setQuantity(line.productId, line.quantity - 1)
+                                                }
                                                 aria-label={`Decrease quantity of ${line.name}`}
                                                 className="rounded-md p-1 text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400/70 cursor-pointer"
                                             >
@@ -257,9 +311,12 @@ function CartPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
                                             </span>
                                             <button
                                                 type="button"
-                                                onClick={() => setQuantity(line.productId, line.quantity + 1)}
+                                                onClick={() =>
+                                                    setQuantity(line.productId, line.quantity + 1)
+                                                }
                                                 disabled={
-                                                    line.maxQuantity !== null && line.quantity >= line.maxQuantity
+                                                    line.maxQuantity !== null &&
+                                                    line.quantity >= line.maxQuantity
                                                 }
                                                 aria-label={`Increase quantity of ${line.name}`}
                                                 className="rounded-md p-1 text-zinc-400 transition hover:bg-zinc-800 hover:text-zinc-100 disabled:pointer-events-none disabled:opacity-30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400/70 cursor-pointer"
@@ -283,10 +340,11 @@ function CartPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
                     </ul>
                 )}
 
-                {/* Drawer Footer */}
                 <footer className="shrink-0 border-t border-zinc-800/80 bg-zinc-950 px-6 py-5">
                     <div className="flex items-baseline justify-between mb-4">
-                        <span className="text-sm font-medium text-zinc-400">Estimated Total</span>
+                        <span className="text-sm font-medium text-zinc-400">
+                            Estimated Total
+                        </span>
                         <span className="font-mono text-xl font-bold tabular-nums tracking-tight text-white">
                             {formatUSD(subtotal)}
                         </span>
@@ -296,11 +354,11 @@ function CartPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
                         onClick={checkout}
                         disabled={lines.length === 0 || checkingOut}
                         className={cx(
-                            "group inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl",
-                            "bg-zinc-100 text-sm font-bold tracking-tight text-zinc-900",
-                            "transition duration-200 hover:bg-white hover:shadow-lg hover:shadow-zinc-100/10",
-                            "disabled:pointer-events-none disabled:bg-zinc-800 disabled:text-zinc-500",
-                            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 cursor-pointer",
+                            'group inline-flex h-12 w-full items-center justify-center gap-2 rounded-xl',
+                            'bg-zinc-100 text-sm font-bold tracking-tight text-zinc-900',
+                            'transition duration-200 hover:bg-white hover:shadow-lg hover:shadow-zinc-100/10',
+                            'disabled:pointer-events-none disabled:bg-zinc-800 disabled:text-zinc-500',
+                            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400/70 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 cursor-pointer'
                         )}
                     >
                         {checkingOut ? (
@@ -311,7 +369,10 @@ function CartPanel({ open, onClose }: { open: boolean; onClose: () => void }) {
                         ) : (
                             <>
                                 Checkout securely
-                                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" strokeWidth={2.5} />
+                                <ArrowRight
+                                    className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
+                                    strokeWidth={2.5}
+                                />
                             </>
                         )}
                     </button>

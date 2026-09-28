@@ -7,7 +7,7 @@ import { after } from 'next/server';
 import { auth } from '@/auth';
 import { db } from '@/db';
 import { categories, stores } from '@/db/schema';
-import { CATEGORY_TYPES, isValidCategoryType } from '@/lib/categories';
+import { isValidCategoryType } from '@/lib/categories';
 
 const NAME_MIN = 2;
 const NAME_MAX = 40;
@@ -30,10 +30,6 @@ function normalizeSlug(raw: string): string {
         .replace(/[^a-z0-9-]/g, '-')
         .replace(/-{2,}/g, '-')
         .replace(/^-+|-+$/g, '');
-}
-
-function slugify(name: string): string {
-    return normalizeSlug(name);
 }
 
 function validateSlug(slug: string): string | null {
@@ -111,12 +107,21 @@ type ParseResult =
 
 function parseCategoryForm(formData: FormData): ParseResult {
     const rawName = formData.get('name');
-    if (typeof rawName !== 'string') return { ok: false, error: 'Name is required.', field: 'name' };
+    if (typeof rawName !== 'string')
+        return { ok: false, error: 'Name is required.', field: 'name' };
     const name = rawName.trim();
     if (name.length < NAME_MIN)
-        return { ok: false, error: `Name must be at least ${NAME_MIN} characters.`, field: 'name' };
+        return {
+            ok: false,
+            error: `Name must be at least ${NAME_MIN} characters.`,
+            field: 'name',
+        };
     if (name.length > NAME_MAX)
-        return { ok: false, error: `Name must be at most ${NAME_MAX} characters.`, field: 'name' };
+        return {
+            ok: false,
+            error: `Name must be at most ${NAME_MAX} characters.`,
+            field: 'name',
+        };
 
     const rawSlug = formData.get('slug');
     const slugInput =
@@ -135,21 +140,6 @@ function parseCategoryForm(formData: FormData): ParseResult {
     return { ok: true, data: { name, slug, type } };
 }
 
-/* -------------------------------------------------------------------------- */
-/*  Cache invalidation                                                         */
-/* -------------------------------------------------------------------------- */
-
-/**
- * Schedules revalidation to run *after* the Server Action response is sent.
- *
- * Running revalidateTag/revalidatePath synchronously inside a Server Action
- * in Next.js 16 can corrupt the RSC payload streamed back to the browser
- * (surfacing as "Error in input stream"). `after()` defers the work until
- * the response is complete.
- *
- * The two-argument revalidateTag signature is required in Next.js 16 —
- * the single-argument form is deprecated and can misbehave.
- */
 function scheduleRevalidation(subdomain: string, storeId: string) {
     after(() => {
         try {
@@ -157,15 +147,10 @@ function scheduleRevalidation(subdomain: string, storeId: string) {
             revalidateTag(`categories-${storeId}`, 'max');
             revalidateTag(`store-${subdomain}`, 'max');
         } catch (err) {
-            // Revalidation failures must not crash the request.
             console.error('[category revalidate]', err);
         }
     });
 }
-
-/* -------------------------------------------------------------------------- */
-/*  Create                                                                     */
-/* -------------------------------------------------------------------------- */
 
 export async function createCategory(
     subdomain: string,
@@ -206,16 +191,16 @@ export async function createCategory(
         return { ok: true, categoryId: created.id };
     } catch (err) {
         if (isPostgresError(err) && err.code === PG_UNIQUE_VIOLATION) {
-            return { ok: false, error: 'That slug was just claimed. Please try another.', field: 'slug' };
+            return {
+                ok: false,
+                error: 'That slug was just claimed. Please try another.',
+                field: 'slug',
+            };
         }
         console.error('[createCategory]', err);
         return { ok: false, error: 'Something went wrong. Please try again.' };
     }
 }
-
-/* -------------------------------------------------------------------------- */
-/*  Update                                                                     */
-/* -------------------------------------------------------------------------- */
 
 export async function updateCategory(
     subdomain: string,
@@ -254,16 +239,16 @@ export async function updateCategory(
         return { ok: true, categoryId };
     } catch (err) {
         if (isPostgresError(err) && err.code === PG_UNIQUE_VIOLATION) {
-            return { ok: false, error: 'That slug was just claimed. Please try another.', field: 'slug' };
+            return {
+                ok: false,
+                error: 'That slug was just claimed. Please try another.',
+                field: 'slug',
+            };
         }
         console.error('[updateCategory]', err);
         return { ok: false, error: 'Something went wrong. Please try again.' };
     }
 }
-
-/* -------------------------------------------------------------------------- */
-/*  Delete                                                                     */
-/* -------------------------------------------------------------------------- */
 
 export async function deleteCategory(
     subdomain: string,

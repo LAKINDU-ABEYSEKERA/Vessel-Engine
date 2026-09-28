@@ -61,10 +61,6 @@ function normalizeSlug(raw: string): string {
         .replace(/^-+|-+$/g, '');
 }
 
-function slugify(name: string): string {
-    return normalizeSlug(name);
-}
-
 function validateSlug(slug: string): string | null {
     if (slug.length < SLUG_MIN) {
         return `Slug must be at least ${SLUG_MIN} characters.`;
@@ -174,24 +170,12 @@ async function resolveOwnedCategoryIds(
         .select({ id: categories.id })
         .from(categories)
         .where(
-            and(
-                eq(categories.storeId, storeId),
-                inArray(categories.id, raw)
-            )
+            and(eq(categories.storeId, storeId), inArray(categories.id, raw))
         );
 
     return owned.map((c) => c.id);
 }
 
-/**
- * Defers revalidation to after the response is sent.
- *
- * Running revalidateTag / revalidatePath synchronously inside a Server
- * Action in Next.js 16 corrupts the RSC payload streamed to the client —
- * the browser surfaces this as "Error in input stream". Wrapping in
- * `after()` prevents that. The second argument to revalidateTag ('max')
- * is now required by Next.js 16.
- */
 function scheduleProductRevalidation(
     subdomain: string,
     storeId: string,
@@ -211,10 +195,6 @@ function scheduleProductRevalidation(
         }
     });
 }
-
-/* -------------------------------------------------------------------------- */
-/*  Shared parsing                                                             */
-/* -------------------------------------------------------------------------- */
 
 interface ParsedProductInput {
     name: string;
@@ -238,10 +218,18 @@ function parseProductForm(formData: FormData): ParseResult {
     }
     const name = rawName.trim();
     if (name.length < NAME_MIN) {
-        return { ok: false, error: `Name must be at least ${NAME_MIN} characters.`, field: 'name' };
+        return {
+            ok: false,
+            error: `Name must be at least ${NAME_MIN} characters.`,
+            field: 'name',
+        };
     }
     if (name.length > NAME_MAX) {
-        return { ok: false, error: `Name must be at most ${NAME_MAX} characters.`, field: 'name' };
+        return {
+            ok: false,
+            error: `Name must be at most ${NAME_MAX} characters.`,
+            field: 'name',
+        };
     }
 
     const rawSlug = formData.get('slug');
@@ -272,13 +260,25 @@ function parseProductForm(formData: FormData): ParseResult {
     }
     const priceInCents = parsePriceToCents(rawPrice);
     if (priceInCents === null) {
-        return { ok: false, error: 'Please enter a valid price.', field: 'priceInCents' };
+        return {
+            ok: false,
+            error: 'Please enter a valid price.',
+            field: 'priceInCents',
+        };
     }
     if (priceInCents < PRICE_MIN_CENTS) {
-        return { ok: false, error: 'Price must be greater than $0.00.', field: 'priceInCents' };
+        return {
+            ok: false,
+            error: 'Price must be greater than $0.00.',
+            field: 'priceInCents',
+        };
     }
     if (priceInCents > PRICE_MAX_CENTS) {
-        return { ok: false, error: 'Price cannot exceed $999,999.99.', field: 'priceInCents' };
+        return {
+            ok: false,
+            error: 'Price cannot exceed $999,999.99.',
+            field: 'priceInCents',
+        };
     }
 
     const isDigital =
@@ -343,10 +343,6 @@ function parseProductForm(formData: FormData): ParseResult {
     };
 }
 
-/* -------------------------------------------------------------------------- */
-/*  Create                                                                     */
-/* -------------------------------------------------------------------------- */
-
 export async function createProduct(
     subdomain: string,
     formData: FormData
@@ -405,10 +401,6 @@ export async function createProduct(
         return { ok: false, error: 'Something went wrong. Please try again.' };
     }
 }
-
-/* -------------------------------------------------------------------------- */
-/*  Update                                                                     */
-/* -------------------------------------------------------------------------- */
 
 export async function updateProduct(
     subdomain: string,
@@ -482,10 +474,6 @@ export async function updateProduct(
     }
 }
 
-/* -------------------------------------------------------------------------- */
-/*  Delete                                                                     */
-/* -------------------------------------------------------------------------- */
-
 export async function deleteProduct(
     subdomain: string,
     productId: string
@@ -499,7 +487,8 @@ export async function deleteProduct(
             .where(and(eq(products.id, productId), eq(products.storeId, store.id)))
             .returning({ id: products.id });
 
-        if (deleted.length === 0) return { ok: false, error: 'Product not found.' };
+        if (deleted.length === 0)
+            return { ok: false, error: 'Product not found.' };
 
         scheduleProductRevalidation(subdomain, store.id);
 

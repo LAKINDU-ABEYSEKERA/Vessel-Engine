@@ -57,7 +57,6 @@ export function StoreSettingsForm({
                 });
 
                 if (subdomainChanged) {
-                    // Navigate to the new URL so the user lands on a valid page.
                     router.push(`/app/stores/${res.subdomain}/settings`);
                 }
                 router.refresh();
@@ -178,8 +177,9 @@ export function StoreSettingsForm({
                             <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-amber-600 dark:text-amber-400" />
                             <div className="text-xs text-amber-700 dark:text-amber-300">
                                 <strong>This changes your storefront URL.</strong>{' '}
-                                Links you've shared will break. Your old
-                                subdomain <code className="font-mono">{initialSubdomain}</code>{' '}
+                                Links you&apos;ve shared will break. Your old
+                                subdomain{' '}
+                                <code className="font-mono">{initialSubdomain}</code>{' '}
                                 becomes available for others to claim.
                             </div>
                         </div>

@@ -1,10 +1,11 @@
-import { notFound } from "next/navigation";
-import type { ReactNode } from "react";
-import { CartProvider } from "@/components/storefront/cart-provider";
-import { getTenantStore } from "@/db/queries/storefront";
-import { normalizeStore, type RawStore } from "@/lib/storefront";
+import { notFound } from 'next/navigation';
+import type { ReactNode } from 'react';
 
-export const dynamic = "force-dynamic";
+import { CartProvider } from '@/components/storefront/cart-provider';
+import { getTenantStore } from '@/db/queries/storefront';
+import { normalizeStore } from '@/lib/storefront';
+
+export const dynamic = 'force-dynamic';
 
 export default async function TenantLayout({
                                                children,
@@ -14,7 +15,7 @@ export default async function TenantLayout({
     params: Promise<{ tenant: string }>;
 }) {
     const { tenant } = await params;
-    const record = (await getTenantStore(tenant)) as RawStore | null | undefined;
+    const record = await getTenantStore(tenant);
     if (!record) notFound();
 
     const store = normalizeStore(record, tenant);

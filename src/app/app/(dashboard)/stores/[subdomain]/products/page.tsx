@@ -1,17 +1,18 @@
-import { and, desc, eq, isNull } from 'drizzle-orm';
-import Link from 'next/link';
-import { Download, Package, Pencil, Plus } from 'lucide-react';
+import { and, desc, eq, isNull } from "drizzle-orm";
+import Link from "next/link";
+import { Download, Package, Pencil, Plus } from "lucide-react";
 
-import { auth } from '@/auth';
-import { db } from '@/db';
-import { stores, products } from '@/db/schema';
+import { auth } from "@/auth";
+import { db } from "@/db";
+import { stores, products } from "@/db/schema";
+import { notFound } from 'next/navigation';
 
-import { DeleteProductButton } from './delete-product-button';
+import { DeleteProductButton } from "./delete-product-button";
 
 function formatMoney(cents: number) {
-    return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: 'USD',
+    return new Intl.NumberFormat("en-US", {
+        style: "currency",
+        currency: "USD",
     }).format(cents / 100);
 }
 
@@ -20,25 +21,19 @@ export default async function StoreProductsPage({
                                                 }: {
     params: Promise<{ subdomain: string }>;
 }) {
+
     const { subdomain } = await params;
     const session = await auth();
-    const userId = session?.user?.id;
+    if (!session?.user?.id) notFound();
+    const userId = session.user.id;
 
     const [store] = await db
         .select()
         .from(stores)
-        .where(
-            and(eq(stores.subdomain, subdomain), isNull(stores.deletedAt))
-        )
+        .where(and(eq(stores.subdomain, subdomain), isNull(stores.deletedAt)))
         .limit(1);
 
-    if (!store || store.userId !== userId) {
-        return null;
-    }
-    if (!store || store.userId !== userId) {
-        // Layout already guards ownership; return null as a safe fallback.
-        return null;
-    }
+    if (!store || store.userId !== userId) notFound();
 
     const inventory = await db
         .select()
@@ -142,11 +137,11 @@ export default async function StoreProductsPage({
                                         </div>
                                     </td>
                                     <td className="px-6 py-4 text-zinc-600 dark:text-zinc-400">
-                                        {product.isDigital ? 'Digital' : 'Physical'}
+                                        {product.isDigital ? "Digital" : "Physical"}
                                     </td>
                                     <td className="px-6 py-4 text-zinc-600 dark:text-zinc-400">
                                         {product.isDigital
-                                            ? '∞ Instant'
+                                            ? "∞ Instant"
                                             : `${product.inventory} in stock`}
                                     </td>
                                     <td className="px-6 py-4 font-mono text-zinc-900 dark:text-white">

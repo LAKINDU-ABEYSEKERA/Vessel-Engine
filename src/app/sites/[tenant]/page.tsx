@@ -1,33 +1,31 @@
-import type { Metadata } from "next";
-import { notFound } from "next/navigation";
-import type { ReactNode } from "react";
-import { ShieldCheck, Store } from "lucide-react";
-import { Toaster } from "sonner";
-
-import { CartButton } from "@/components/storefront/cart-button";
-import { CheckoutCanceledToast } from "@/components/storefront/checkout-canceled-toast";
-import { EmptyCatalog } from "@/components/storefront/empty-catalog";
-import { ProductCard } from "@/components/storefront/product-card";
+import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
+import type { ReactNode } from 'react';
+import { ShieldCheck, Store } from 'lucide-react';
+import { Toaster } from 'sonner';
+import { PLATFORM_URL } from '@/lib/config';
+import { CartButton } from '@/components/storefront/cart-button';
+import { CheckoutCanceledToast } from '@/components/storefront/checkout-canceled-toast';
+import { EmptyCatalog } from '@/components/storefront/empty-catalog';
+import { ProductCard } from '@/components/storefront/product-card';
 import {
     getStoreCategories,
     getStoreProducts,
     getStoreProductsByCategory,
     getTenantStore,
-} from "@/db/queries/storefront";
+} from '@/db/queries/storefront';
 import {
-    cx,
     normalizeCategory,
     normalizeProduct,
     normalizeStore,
     storeHostname,
-    type RawProduct,
-    type RawStore,
     type StoreCategory,
-} from "@/lib/storefront";
+} from '@/lib/storefront';
 
-import { CategoryChips } from "./category-chips";
+import { CategoryChips } from './category-chips';
+import Link from "next/link";
 
-export const dynamic = "force-dynamic";
+export const dynamic = 'force-dynamic';
 
 type PageProps = {
     params: Promise<{ tenant: string }>;
@@ -36,9 +34,9 @@ type PageProps = {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
     const { tenant } = await params;
-    const record = (await getTenantStore(tenant)) as RawStore | null | undefined;
+    const record = await getTenantStore(tenant);
 
-    if (!record) return { title: "Store not found" };
+    if (!record) return { title: 'Store not found' };
 
     const store = normalizeStore(record, tenant);
 
@@ -49,49 +47,44 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
             title: store.name,
             description: store.description ?? `Shop the ${store.name} collection.`,
             siteName: store.name,
-            type: "website",
+            type: 'website',
         },
     };
 }
 
-export default async function TenantStorefrontPage({ params, searchParams }: PageProps) {
+export default async function TenantStorefrontPage({
+                                                       params,
+                                                       searchParams,
+                                                   }: PageProps) {
     const { tenant } = await params;
     const { section } = await searchParams;
 
-    const storeRecord = (await getTenantStore(tenant)) as RawStore | null | undefined;
+    const storeRecord = await getTenantStore(tenant);
     if (!storeRecord) notFound();
 
     const store = normalizeStore(storeRecord, tenant);
 
-    // Fetch everything in parallel. The `as` casts at the boundary are
-    // defensive: the query layer returns fully-typed rows, but if TS
-    // ever sees `unknown` (e.g. stale server cache), these keep the
-    // rest of the component compiling.
-    const [rawCategories, allProductsRaw, filteredRaw] = await Promise.all([
-        getStoreCategories(store.id) as Promise<unknown[]>,
-        getStoreProducts(store.id) as Promise<unknown[]>,
+    const [rawCategories, rawProducts, rawFiltered] = await Promise.all([
+        getStoreCategories(store.id),
+        getStoreProducts(store.id),
         section
-            ? (getStoreProductsByCategory(store.id, section) as Promise<unknown[]>)
+            ? getStoreProductsByCategory(store.id, section)
             : Promise.resolve(null),
     ]);
 
-    const categories: StoreCategory[] = rawCategories.map((c) =>
-        normalizeCategory(c as Parameters<typeof normalizeCategory>[0])
-    );
-    const allProducts = allProductsRaw.map((p) =>
-        normalizeProduct(p as RawProduct)
-    );
-    const visibleProducts = filteredRaw
-        ? filteredRaw.map((p) => normalizeProduct(p as RawProduct))
+    const categories: StoreCategory[] = rawCategories.map(normalizeCategory);
+    const allProducts = rawProducts.map(normalizeProduct);
+    const visibleProducts = rawFiltered
+        ? rawFiltered.map(normalizeProduct)
         : allProducts;
 
-    // If a section filter is applied but the slug doesn't match any category,
-    // show all products (graceful fallback).
     const activeCategory: StoreCategory | null = section
         ? categories.find((c) => c.slug === section) ?? null
         : null;
 
-    const digitalCount = visibleProducts.filter((p) => p.kind === "digital").length;
+    const digitalCount = visibleProducts.filter(
+        (p) => p.kind === 'digital'
+    ).length;
     const physicalCount = visibleProducts.length - digitalCount;
 
     return (
@@ -102,7 +95,11 @@ export default async function TenantStorefrontPage({ params, searchParams }: Pag
                         <div className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-zinc-800/80 bg-zinc-900">
                             {store.logoUrl ? (
                                 // eslint-disable-next-line @next/next/no-img-element
-                                <img src={store.logoUrl} alt="" className="h-full w-full object-cover" />
+                                <img
+                                    src={store.logoUrl}
+                                    alt=""
+                                    className="h-full w-full object-cover"
+                                />
                             ) : (
                                 <span className="font-mono text-xs tracking-tight text-zinc-400">
                                     {store.name.slice(0, 2).toUpperCase()}
@@ -115,7 +112,10 @@ export default async function TenantStorefrontPage({ params, searchParams }: Pag
                                 {store.name}
                             </span>
                             <span className="hidden items-center gap-1.5 rounded-full border border-zinc-800/80 bg-zinc-900/60 px-2.5 py-1 font-mono text-[11px] tracking-tight text-zinc-400 sm:inline-flex">
-                                <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden="true" />
+                                <span
+                                    className="h-1.5 w-1.5 rounded-full bg-emerald-400"
+                                    aria-hidden="true"
+                                />
                                 {storeHostname(store)}
                             </span>
                         </div>
@@ -135,7 +135,7 @@ export default async function TenantStorefrontPage({ params, searchParams }: Pag
 
                     <p className="mt-6 max-w-[58ch] text-base leading-relaxed text-zinc-400 md:text-lg">
                         {store.description ??
-                            "A small, considered collection. Everything here is made to be used."}
+                            'A small, considered collection. Everything here is made to be used.'}
                     </p>
 
                     <div className="mt-9 flex flex-wrap items-center gap-2">
@@ -143,7 +143,7 @@ export default async function TenantStorefrontPage({ params, searchParams }: Pag
                             <span className="font-mono tabular-nums text-zinc-200">
                                 {visibleProducts.length}
                             </span>
-                            {visibleProducts.length === 1 ? "product" : "products"}
+                            {visibleProducts.length === 1 ? 'product' : 'products'}
                         </MetaPill>
 
                         {digitalCount > 0 ? (
@@ -165,7 +165,10 @@ export default async function TenantStorefrontPage({ params, searchParams }: Pag
                         ) : null}
 
                         <MetaPill>
-                            <ShieldCheck className="h-3.5 w-3.5 text-zinc-500" strokeWidth={1.75} />
+                            <ShieldCheck
+                                className="h-3.5 w-3.5 text-zinc-500"
+                                strokeWidth={1.75}
+                            />
                             Secure checkout
                         </MetaPill>
                     </div>
@@ -185,16 +188,24 @@ export default async function TenantStorefrontPage({ params, searchParams }: Pag
                         <>
                             <div className="mb-8 flex items-baseline justify-between gap-4">
                                 <h2 className="text-sm font-medium tracking-tight text-zinc-300">
-                                    {activeCategory ? `In ${activeCategory.name}` : "Everything in the shop"}
+                                    {activeCategory
+                                        ? `In ${activeCategory.name}`
+                                        : 'Everything in the shop'}
                                 </h2>
                                 <span className="font-mono text-[11px] tabular-nums text-zinc-600">
-                                    {visibleProducts.length.toString().padStart(2, "0")} items
+                                    {visibleProducts.length
+                                        .toString()
+                                        .padStart(2, '0')}{' '}
+                                    items
                                 </span>
                             </div>
 
                             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
                                 {visibleProducts.map((product) => (
-                                    <ProductCard key={product.id} product={product} />
+                                    <ProductCard
+                                        key={product.id}
+                                        product={product}
+                                    />
                                 ))}
                             </div>
                         </>
@@ -205,13 +216,21 @@ export default async function TenantStorefrontPage({ params, searchParams }: Pag
             <footer className="border-t border-zinc-800/80">
                 <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-4 px-6 py-10 sm:flex-row sm:items-center">
                     <p className="text-sm text-zinc-500">
-                        © {new Date().getFullYear()} {store.name}. All rights reserved.
+                        © {new Date().getFullYear()} {store.name}. All rights
+                        reserved.
                     </p>
-                    <p className="inline-flex items-center gap-2 text-sm text-zinc-600">
+                    <Link
+                        href={PLATFORM_URL}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-2 text-sm text-zinc-600 transition hover:text-zinc-400"
+                    >
                         <Store className="h-3.5 w-3.5" strokeWidth={1.75} />
                         Powered by
-                        <span className="font-medium tracking-tight text-zinc-400">Vessel Engine</span>
-                    </p>
+                        <span className="font-medium tracking-tight text-zinc-400">
+        Vessel Engine
+    </span>
+                    </Link>
                 </div>
             </footer>
 
