@@ -34,6 +34,11 @@ function isAppPath(pathname: string): boolean {
     return pathname === '/app' || pathname.startsWith('/app/');
 }
 
+/** True when the path is exactly `/admin` or a child of it. */
+function isAdminPath(pathname: string): boolean {
+    return pathname === '/admin' || pathname.startsWith('/admin/');
+}
+
 export function proxy(request: NextRequest) {
     const { pathname } = request.nextUrl;
 
@@ -42,6 +47,7 @@ export function proxy(request: NextRequest) {
     //
     //    `/api/*`    → Stripe webhook + Auth.js handlers + fulfillment
     //    `/app/*`    → Creator Dashboard (path-based in local dev)
+    //    `/admin/*`  → Platform admin panel
     //    `_next/*`   → Framework internals
     //    dot paths   → Static assets
     // ------------------------------------------------------------------
@@ -50,6 +56,7 @@ export function proxy(request: NextRequest) {
         pathname.startsWith('/_next') ||
         pathname.startsWith('/_static') ||
         isAppPath(pathname) ||
+        isAdminPath(pathname) ||
         pathname === '/favicon.ico' ||
         pathname === '/robots.txt' ||
         pathname === '/sitemap.xml' ||

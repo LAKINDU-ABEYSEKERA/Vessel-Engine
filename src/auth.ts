@@ -7,6 +7,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { accounts, sessions, users, verificationTokens } from "@/db/schema";
 import { verifyPassword } from "@/lib/password";
+import { computeEffectiveRole } from "@/lib/roles";
 
 declare module "next-auth" {
     interface Session {
@@ -80,8 +81,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         jwt({ token, user }) {
             if (user) {
                 token.id = user.id;
-                token.role =
-                    (user as { role?: string }).role ?? "customer";
+                token.role = computeEffectiveRole({
+                    email: user.email,
+                    role: (user as { role?: string }).role,
+                });
             }
             return token;
         },

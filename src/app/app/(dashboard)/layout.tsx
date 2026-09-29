@@ -1,11 +1,12 @@
 import { eq, desc, isNull, and } from 'drizzle-orm';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { LogOut, Plus, Store } from 'lucide-react';
+import { LogOut, Plus, ShieldCheck, Store } from 'lucide-react';
 
 import { auth, signOut } from '@/auth';
 import { db } from '@/db';
 import { stores, users } from '@/db/schema';
+import { computeEffectiveRole } from '@/lib/roles';
 
 import { SidebarStoreList } from './sidebar-store-list';
 
@@ -40,6 +41,7 @@ export default async function DashboardLayout({
                 email: users.email,
                 avatarUrl: users.avatarUrl,
                 image: users.image,
+                role: users.role,
             })
             .from(users)
             .where(eq(users.id, session.user.id))
@@ -56,6 +58,14 @@ export default async function DashboardLayout({
     //   3. Initial letter fallback
     const avatarSrc = currentUser?.avatarUrl ?? currentUser?.image ?? null;
     const initial = (displayName || displayEmail || '?').slice(0, 1).toUpperCase();
+
+    // Effective role considers both the DB role and the ADMIN_EMAILS env
+    // override — a user listed there is treated as admin even without a
+    // DB write, which makes bootstrap easy.
+    const effectiveRole = computeEffectiveRole({
+        email: displayEmail,
+        role: currentUser?.role ?? null,
+    });
 
     return (
         <div className="flex min-h-screen bg-zinc-50 dark:bg-zinc-950 font-sans">
@@ -130,6 +140,18 @@ export default async function DashboardLayout({
                             )}
                         </div>
                     </Link>
+
+                    {effectiveRole === 'admin' && (
+                        <div className="px-4 pb-3">
+                            <Link
+                                href="/admin"
+                                className="flex items-center justify-center gap-2 rounded-lg border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 px-3 py-2 text-xs font-medium text-amber-700 dark:text-amber-400 transition hover:bg-amber-100 dark:hover:bg-amber-950/60"
+                            >
+                                <ShieldCheck size={14} />
+                                Admin panel
+                            </Link>
+                        </div>
+                    )}
 
                     <div className="px-4 pb-4">
                         <form

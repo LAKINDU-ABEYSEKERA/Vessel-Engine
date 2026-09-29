@@ -3,10 +3,9 @@
 import { and, eq, isNull, ne } from 'drizzle-orm';
 import { revalidatePath, revalidateTag } from 'next/cache';
 
-
 import { auth } from '@/auth';
 import { db } from '@/db';
-import { stores } from '@/db/schema';
+import { stores, users } from '@/db/schema';
 
 const RESERVED_SUBDOMAINS = new Set<string>([
     'app', 'admin', 'api', 'www',
@@ -126,10 +125,22 @@ export async function createStore(formData: FormData): Promise<CreateStoreResult
     }
 
     try {
-        const [created] = await db
-            .insert(stores)
-            .values({ userId, name, subdomain })
-            .returning({ subdomain: stores.subdomain });
+        const created = await db.transaction(async (tx) => {
+            const [store] = await tx
+                .insert(stores)
+                .values({ userId, name, subdomain })
+                .returning({ subdomain: stores.subdomain });
+
+            // Auto-promote the user to seller if they were a customer.
+            // Only customer → seller; existing sellers and admins are untouched.
+            // Scoped to the same transaction so a failure rolls back both writes.
+            await tx
+                .update(users)
+                .set({ role: 'seller', updatedAt: new Date() })
+                .where(and(eq(users.id, userId), eq(users.role, 'customer')));
+
+            return store;
+        });
 
         try {
             revalidatePath('/app');
