@@ -43,6 +43,13 @@
       "when": 1790500000000,
       "tag": "0005_stripe_events",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790762977292,
+      "tag": "0006_auth_user_columns",
+      "breakpoints": true
     }
   ]
 }

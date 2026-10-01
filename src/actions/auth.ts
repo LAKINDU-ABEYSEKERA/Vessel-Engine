@@ -16,19 +16,29 @@ import { sendPasswordResetEmail } from '@/lib/email';
 import { checkRateLimit } from '@/lib/rate-limit';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
 /* -------------------------------------------------------------------------- */
 /*  Sign up                                                                    */
 /* -------------------------------------------------------------------------- */
 
+export type SignupRole = 'customer' | 'seller';
+
 export type SignupResult =
     | { ok: true }
-    | { ok: false; error: string; field?: 'name' | 'email' | 'password' | 'general' };
+    | { ok: false; error: string; field?: 'name' | 'email' | 'password' | 'role' | 'general' };
 
-export async function signUpAction(formData: FormData): Promise<SignupResult> {
+/**
+ * Server Action bound to the signup form via `useActionState`.
+ * Accepts a `role` field ('customer' | 'seller') so we can route the user
+ * to the correct dashboard immediately after account creation.
+ */
+export async function signUpAction(
+    _prevState: SignupResult | null,
+    formData: FormData
+): Promise<SignupResult> {
     const rawName = formData.get('name');
     const rawEmail = formData.get('email');
     const rawPassword = formData.get('password');
+    const rawRole = formData.get('role');
 
     if (
         typeof rawName !== 'string' ||
@@ -37,6 +47,8 @@ export async function signUpAction(formData: FormData): Promise<SignupResult> {
     ) {
         return { ok: false, error: 'Invalid submission.', field: 'general' };
     }
+
+    const role: SignupRole = rawRole === 'seller' ? 'seller' : 'customer';
 
     const name = rawName.trim();
     const email = rawEmail.toLowerCase().trim();
@@ -73,18 +85,19 @@ export async function signUpAction(formData: FormData): Promise<SignupResult> {
             name,
             email,
             passwordHash,
-            role: 'customer',
+            role,
         });
     } catch (err) {
         console.error('[signUpAction] insert failed:', err);
         return { ok: false, error: 'Something went wrong. Please try again.', field: 'general' };
     }
 
+    const redirectTo = role === 'seller' ? '/app' : '/app/customer';
+
     try {
-        await signIn('credentials', { email, password, redirectTo: '/app' });
+        await signIn('credentials', { email, password, redirectTo });
     } catch (err) {
         if (err instanceof AuthError) {
-            // Account was created but auto-sign-in failed (rare). Let them log in manually.
             return {
                 ok: false,
                 error: 'Account created — please sign in manually.',
@@ -101,9 +114,19 @@ export async function signUpAction(formData: FormData): Promise<SignupResult> {
 /*  Login                                                                      */
 /* -------------------------------------------------------------------------- */
 
-export type LoginResult = { ok: true } | { ok: false; error: string };
+export type LoginResult =
+    | { ok: true }
+    | { ok: false; error: string };
 
-export async function loginAction(formData: FormData): Promise<LoginResult> {
+/**
+ * Server Action bound to the login form via `useActionState`.
+ * Looks up the user's role first so the post-login redirect lands on the
+ * correct dashboard (sellers → /app, customers → /app/customer).
+ */
+export async function loginAction(
+    _prevState: LoginResult | null,
+    formData: FormData
+): Promise<LoginResult> {
     const rawEmail = formData.get('email');
     const rawPassword = formData.get('password');
 
@@ -119,8 +142,22 @@ export async function loginAction(formData: FormData): Promise<LoginResult> {
         return { ok: false, error: 'Too many attempts. Try again in a few minutes.' };
     }
 
+    // Look up role up-front so the redirect lands on the right dashboard.
+    // If the user doesn't exist we still hand off to signIn — which will
+    // fail with AuthError — so this lookup doesn't leak existence by itself.
+    const [record] = await db
+        .select({ role: users.role })
+        .from(users)
+        .where(eq(users.email, email))
+        .limit(1);
+
+    const redirectTo =
+        record?.role === 'seller' || record?.role === 'admin'
+            ? '/app'
+            : '/app/customer';
+
     try {
-        await signIn('credentials', { email, password, redirectTo: '/app' });
+        await signIn('credentials', { email, password, redirectTo });
     } catch (err) {
         if (err instanceof AuthError) {
             return { ok: false, error: 'Invalid email or password.' };
@@ -130,7 +167,6 @@ export async function loginAction(formData: FormData): Promise<LoginResult> {
 
     return { ok: true };
 }
-
 /* -------------------------------------------------------------------------- */
 /*  Logout                                                                     */
 /* -------------------------------------------------------------------------- */
@@ -167,10 +203,8 @@ export async function forgotPasswordAction(
         .where(eq(users.email, email))
         .limit(1);
 
-    // Always return ok — never reveal whether an email exists.
     if (!user) return { ok: true };
 
-    // Invalidate any outstanding unused tokens for this user.
     await db
         .update(passwordResetTokens)
         .set({ usedAt: new Date() })
@@ -193,7 +227,6 @@ export async function forgotPasswordAction(
     try {
         await sendPasswordResetEmail(email, rawToken);
     } catch (err) {
-        // Swallow — never leak send failures to the caller.
         console.error('[forgotPasswordAction] send failed:', err);
     }
 

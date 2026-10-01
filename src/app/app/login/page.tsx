@@ -1,12 +1,18 @@
 import { signIn, signOut, auth } from "@/auth";
 import Link from "next/link";
-import { ArrowLeft, ArrowRight, LogOut, Store } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, LogOut, Store } from "lucide-react";
 
 import { PLATFORM_URL } from "@/lib/config";
 import { CredentialsForm } from "./credentials-form";
 
-export default async function LoginPage() {
+export default async function LoginPage({
+                                            searchParams,
+                                        }: {
+    searchParams: Promise<{ signup?: string }>;
+}) {
     const session = await auth();
+    const { signup } = await searchParams;
+    const showSignupSuccess = signup === 'success';
 
     return (
         <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col selection:bg-zinc-100 selection:text-zinc-900">
@@ -83,6 +89,16 @@ export default async function LoginPage() {
                             <p className="text-sm text-zinc-400 mb-8">
                                 Sign in to manage your storefronts.
                             </p>
+
+                            {showSignupSuccess && (
+                                <div
+                                    role="status"
+                                    className="mb-4 w-full flex items-start gap-2 p-3 text-xs text-emerald-300 bg-emerald-950/40 rounded-lg border border-emerald-900 text-left"
+                                >
+                                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                                    <span>Account created. Sign in below to continue.</span>
+                                </div>
+                            )}
 
                             <CredentialsForm />
 

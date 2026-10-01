@@ -10,11 +10,14 @@ export function ForgotPasswordForm() {
     const [error, setError] = useState<string | null>(null);
     const [sent, setSent] = useState(false);
 
-    async function handleSubmit(formData: FormData) {
+    async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+        e.preventDefault();
         setPending(true);
         setError(null);
 
+        const formData = new FormData(e.currentTarget);
         const res = await forgotPasswordAction(formData);
+
         if (!res.ok) {
             setError(res.error);
             setPending(false);
@@ -44,7 +47,7 @@ export function ForgotPasswordForm() {
     }
 
     return (
-        <form action={handleSubmit} className="w-full space-y-3 text-left">
+        <form onSubmit={handleSubmit} className="w-full space-y-3 text-left">
             <div className="space-y-1.5">
                 <label htmlFor="email" className="block text-xs font-medium text-zinc-400">
                     Email

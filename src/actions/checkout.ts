@@ -6,23 +6,31 @@ import { and, eq, inArray, isNull } from 'drizzle-orm';
 import { db } from '@/db';
 import { products, stores } from '@/db/schema';
 import { stripe } from '@/lib/stripe';
+import { auth } from '@/auth';
 
 export interface CartItemInput {
     id: string;
     quantity: number;
 }
 
-/**
- * Creates a Stripe Checkout Session for a given tenant's cart.
- *
- * - Authoritative pricing is fetched from the database (client prices are never trusted).
- * - Physical goods are validated against `products.inventory` before the session is created.
- * - Redirects the user to Stripe's hosted checkout page.
- */
 export async function createCheckoutSession(
     items: CartItemInput[],
     tenantSlug: string
 ): Promise<never> {
+    // ------------------------------------------------------------------
+    // 0. Resolve the signed-in customer, if any. Guests fall through to
+    //    Stripe's default email field.
+    // ------------------------------------------------------------------
+    const session = await auth();
+    const userEmail = session?.user?.email ?? null;
+
+    // ─── TEMPORARY DIAGNOSTIC ─────────────────────────────────────────────
+    const _headers = await headers();
+    console.log('[checkout-diag] host:', _headers.get('host'));
+    console.log('[checkout-diag] session email:', userEmail ?? '(none)');
+    console.log('[checkout-diag] session user id:', session?.user?.id ?? '(none)');
+// ──────────────────────────────────────────────────────────────────────
+
     // ------------------------------------------------------------------
     // 1. Guard: non-empty cart
     // ------------------------------------------------------------------
@@ -30,7 +38,6 @@ export async function createCheckoutSession(
         throw new Error('Cart is empty.');
     }
 
-    // Sanitize and deduplicate client input.
     const normalized = new Map<string, number>();
     for (const item of items) {
         if (
@@ -53,21 +60,15 @@ export async function createCheckoutSession(
     const [store] = await db
         .select({ id: stores.id, subdomain: stores.subdomain })
         .from(stores)
-        .where(
-            and(
-                eq(stores.subdomain, tenantSlug),
-                isNull(stores.deletedAt)
-            )
-        )
+        .where(and(eq(stores.subdomain, tenantSlug), isNull(stores.deletedAt)))
         .limit(1);
-
 
     if (!store) {
         throw new Error(`Storefront "${tenantSlug}" not found.`);
     }
 
     // ------------------------------------------------------------------
-    // 3. Fetch authoritative product rows (DB prices, DB inventory)
+    // 3. Fetch authoritative product rows
     // ------------------------------------------------------------------
     const dbProducts = await db
         .select()
@@ -88,7 +89,7 @@ export async function createCheckoutSession(
     const productMap = new Map(dbProducts.map((p) => [p.id, p]));
 
     // ------------------------------------------------------------------
-    // 4. Validate stock + build Stripe line items
+    // 4. Validate stock + build line items
     // ------------------------------------------------------------------
     const lineItems = productIds.map((id) => {
         const product = productMap.get(id);
@@ -98,7 +99,6 @@ export async function createCheckoutSession(
             throw new Error(`Product ${id} not found.`);
         }
 
-        // Physical goods: enforce inventory ceiling.
         if (!product.isDigital && product.inventory < quantity) {
             throw new Error(
                 `Insufficient stock for "${product.name}". Only ${product.inventory} remaining.`
@@ -109,7 +109,7 @@ export async function createCheckoutSession(
             quantity,
             price_data: {
                 currency: 'usd',
-                unit_amount: product.priceInCents, // integer cents, straight from DB
+                unit_amount: product.priceInCents,
                 product_data: {
                     name: product.name,
                     description: product.description ?? undefined,
@@ -124,7 +124,7 @@ export async function createCheckoutSession(
     });
 
     // ------------------------------------------------------------------
-    // 5. Derive tenant-aware return URLs from request headers
+    // 5. Derive tenant-aware return URLs
     // ------------------------------------------------------------------
     const headerList = await headers();
     const host = headerList.get('host') ?? `${store.subdomain}.localhost:3000`;
@@ -135,26 +135,29 @@ export async function createCheckoutSession(
 
     // ------------------------------------------------------------------
     // 6. Create Stripe Checkout Session
+    //
+    //    `customer_email` is the fix: it locks the email field on the
+    //    Stripe page so the customer cannot change it, and guarantees
+    //    the webhook stores the same address the customer dashboard
+    //    queries by.
     // ------------------------------------------------------------------
-    const session = await stripe.checkout.sessions.create({
+    const checkout = await stripe.checkout.sessions.create({
         mode: 'payment',
         line_items: lineItems,
         success_url: `${baseUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${baseUrl}/?canceled=true`,
         allow_promotion_codes: true,
         billing_address_collection: 'auto',
+        ...(userEmail ? { customer_email: userEmail } : {}),
         metadata: {
             storeId: store.id,
             tenantSlug: store.subdomain,
         },
     });
 
-    if (!session.url) {
+    if (!checkout.url) {
         throw new Error('Stripe did not return a checkout URL.');
     }
 
-    // ------------------------------------------------------------------
-    // 7. Redirect to Stripe
-    // ------------------------------------------------------------------
-    redirect(session.url);
+    redirect(checkout.url);
 }

@@ -1,27 +1,16 @@
 'use client';
 
-import { useState } from 'react';
 import Link from 'next/link';
+import { useActionState } from 'react';
 import { AlertCircle, Loader2 } from 'lucide-react';
 
 import { loginAction } from '@/actions/auth';
 
 export function CredentialsForm() {
-    const [pending, setPending] = useState(false);
-    const [error, setError] = useState<string | null>(null);
-
-    async function handleSubmit(formData: FormData) {
-        setPending(true);
-        setError(null);
-        const res = await loginAction(formData);
-        if (!res.ok) {
-            setError(res.error);
-            setPending(false);
-        }
-    }
+    const [state, formAction, pending] = useActionState(loginAction, null);
 
     return (
-        <form action={handleSubmit} className="w-full space-y-3 text-left">
+        <form action={formAction} className="w-full space-y-3 text-left">
             <div className="space-y-1.5">
                 <label htmlFor="email" className="block text-xs font-medium text-zinc-400">
                     Email
@@ -33,7 +22,6 @@ export function CredentialsForm() {
                     required
                     autoComplete="email"
                     placeholder="you@example.com"
-                    onChange={() => setError(null)}
                     className="w-full h-11 px-3.5 rounded-xl border border-zinc-800 bg-zinc-950 text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-zinc-400/70 focus:border-zinc-700 transition"
                 />
             </div>
@@ -57,18 +45,17 @@ export function CredentialsForm() {
                     required
                     autoComplete="current-password"
                     placeholder="••••••••"
-                    onChange={() => setError(null)}
                     className="w-full h-11 px-3.5 rounded-xl border border-zinc-800 bg-zinc-950 text-sm text-zinc-100 placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-zinc-400/70 focus:border-zinc-700 transition"
                 />
             </div>
 
-            {error && (
+            {state && !state.ok && (
                 <div
                     role="alert"
                     className="flex items-start gap-2 p-3 text-xs text-red-400 bg-red-950/40 rounded-lg border border-red-900"
                 >
                     <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                    <span>{error}</span>
+                    <span>{state.error}</span>
                 </div>
             )}
 

@@ -14,6 +14,7 @@ import {
 import { toast } from 'sonner';
 
 import { ImageUploader } from '@/components/storefront/image-uploader';
+import { AssetUploader } from '@/components/storefront/asset-uploader';
 import {
     createProduct,
     updateProduct,
@@ -96,7 +97,6 @@ export function ProductForm({ subdomain, initial, categories }: ProductFormProps
     const [pending, setPending] = useState(false);
     const [errors, setErrors] = useState<FieldErrors>({});
 
-    // --- Form state ---
     const [name, setName] = useState(initial?.name ?? '');
     const [slug, setSlug] = useState(initial?.slug ?? '');
     const [slugManual, setSlugManual] = useState(Boolean(initial?.slug));
@@ -193,9 +193,7 @@ export function ProductForm({ subdomain, initial, categories }: ProductFormProps
                 )}
 
                 <div className="space-y-6">
-                    {/* ---------------------------------------------------- */}
-                    {/* Basic info                                            */}
-                    {/* ---------------------------------------------------- */}
+                    {/* Basic info */}
                     <section className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-6 space-y-5">
                         <h2 className="text-sm font-semibold text-zinc-900 dark:text-white">
                             Basic info
@@ -254,9 +252,7 @@ export function ProductForm({ subdomain, initial, categories }: ProductFormProps
                         </Field>
                     </section>
 
-                    {/* ---------------------------------------------------- */}
-                    {/* Type & pricing                                        */}
-                    {/* ---------------------------------------------------- */}
+                    {/* Type & pricing */}
                     <section className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-6 space-y-5">
                         <h2 className="text-sm font-semibold text-zinc-900 dark:text-white">
                             Type &amp; pricing
@@ -336,30 +332,24 @@ export function ProductForm({ subdomain, initial, categories }: ProductFormProps
 
                         {isDigital && (
                             <Field
-                                label="Asset URL"
+                                label="Delivery file"
                                 required
-                                hint="The download link the customer receives after purchase."
+                                hint="Upload the file customers download after purchase. Stored privately on your store's CDN."
                                 error={errors.assetUrl}
                             >
-                                <input
-                                    type="url"
-                                    name="assetUrl"
-                                    value={assetUrl}
-                                    onChange={(e) => {
-                                        setAssetUrl(e.target.value);
+                                <AssetUploader
+                                    subdomain={subdomain}
+                                    value={assetUrl || null}
+                                    onChange={(filename) => {
+                                        setAssetUrl(filename ?? '');
                                         clearError('assetUrl');
                                     }}
-                                    placeholder="https://cdn.example.com/files/product.zip"
-                                    required
-                                    className={inputClass(errors.assetUrl)}
                                 />
                             </Field>
                         )}
                     </section>
 
-                    {/* ---------------------------------------------------- */}
-                    {/* Sections                                              */}
-                    {/* ---------------------------------------------------- */}
+                    {/* Sections */}
                     <section className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-6 space-y-4">
                         <div>
                             <h2 className="text-sm font-semibold text-zinc-900 dark:text-white">
@@ -407,9 +397,7 @@ export function ProductForm({ subdomain, initial, categories }: ProductFormProps
                         )}
                     </section>
 
-                    {/* ---------------------------------------------------- */}
-                    {/* Media                                                 */}
-                    {/* ---------------------------------------------------- */}
+                    {/* Media */}
                     <section className="rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-6 space-y-5">
                         <h2 className="text-sm font-semibold text-zinc-900 dark:text-white">
                             Media

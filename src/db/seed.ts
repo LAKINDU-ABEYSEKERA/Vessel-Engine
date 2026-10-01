@@ -2,6 +2,19 @@ import 'dotenv/config';
 import { db, client } from './index';
 import { stores, products, orders, orderItems } from './schema';
 
+/**
+ * Development seed.
+ *
+ * Digital products store a *bare filename* in `assetUrl` — the fulfillment
+ * route reconstructs the R2 key as `stores/{storeId}/assets/{filename}`.
+ *
+ * ⚠  These files are NOT auto-uploaded. To make downloads work:
+ *    1. Upload a file to your R2 bucket at
+ *       stores/{storeId}/assets/{filename}
+ *    2. Or open the product in the dashboard and use the upload field
+ *       to replace it.
+ *    Until then, downloads return a friendly 404 (not R2's XML error).
+ */
 async function seed() {
     console.log('🌱 [seed] Starting Vessel Engine database seed...');
 
@@ -35,7 +48,8 @@ async function seed() {
                     priceInCents: 14500,
                     inventory: 25,
                     isDigital: false,
-                    imageUrl: 'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=800&q=80',
+                    imageUrl:
+                        'https://images.unsplash.com/photo-1551028719-00167b16eac5?w=800&q=80',
                 },
                 {
                     storeId: acme.id,
@@ -45,18 +59,21 @@ async function seed() {
                     priceInCents: 3500,
                     inventory: 0,
                     isDigital: true,
-                    assetUrl: 'https://cdn.vesselengine.com/demo/soundfont.zip',
-                    imageUrl: 'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?w=800&q=80',
+                    assetUrl: 'soundfont.zip',
+                    imageUrl:
+                        'https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?w=800&q=80',
                 },
                 {
                     storeId: acme.id,
                     name: 'Nomad Daypack',
                     slug: 'nomad-daypack',
-                    description: 'Water-resistant 20L daypack with a 16-inch laptop sleeve.',
+                    description:
+                        'Water-resistant 20L daypack with a 16-inch laptop sleeve.',
                     priceInCents: 8900,
                     inventory: 15,
                     isDigital: false,
-                    imageUrl: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=800&q=80',
+                    imageUrl:
+                        'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=800&q=80',
                 },
                 {
                     storeId: acme.id,
@@ -66,8 +83,9 @@ async function seed() {
                     priceInCents: 4900,
                     inventory: 0,
                     isDigital: true,
-                    assetUrl: 'https://cdn.vesselengine.com/demo/ui-kit.fig',
-                    imageUrl: 'https://images.unsplash.com/photo-1561070791-2526d30994b5?w=800&q=80',
+                    assetUrl: 'ui-kit.fig',
+                    imageUrl:
+                        'https://images.unsplash.com/photo-1561070791-2526d30994b5?w=800&q=80',
                 },
                 {
                     storeId: acme.id,
@@ -77,7 +95,8 @@ async function seed() {
                     priceInCents: 2400,
                     inventory: 50,
                     isDigital: false,
-                    imageUrl: 'https://images.unsplash.com/photo-1523362628745-0c100150b504?w=800&q=80',
+                    imageUrl:
+                        'https://images.unsplash.com/photo-1523362628745-0c100150b504?w=800&q=80',
                 },
                 {
                     storeId: acme.id,
@@ -87,50 +106,59 @@ async function seed() {
                     priceInCents: 12000,
                     inventory: 0,
                     isDigital: true,
-                    assetUrl: 'https://cdn.vesselengine.com/demo/course-access.pdf',
-                    imageUrl: 'https://images.unsplash.com/photo-1516116216624-53e697fedbea?w=800&q=80',
+                    assetUrl: 'course-access.pdf',
+                    imageUrl:
+                        'https://images.unsplash.com/photo-1516116216624-53e697fedbea?w=800&q=80',
                 },
                 {
                     storeId: acme.id,
                     name: 'Merino Wool Beanie',
                     slug: 'wool-beanie',
-                    description: 'Itch-free, breathable warmth for winter commutes.',
+                    description:
+                        'Itch-free, breathable warmth for winter commutes.',
                     priceInCents: 3200,
                     inventory: 8,
                     isDigital: false,
-                    imageUrl: 'https://images.unsplash.com/photo-1576871337622-98d48d1cf531?w=800&q=80',
+                    imageUrl:
+                        'https://images.unsplash.com/photo-1576871337622-98d48d1cf531?w=800&q=80',
                 },
                 {
                     storeId: acme.id,
                     name: 'Creator Notion Templates',
                     slug: 'notion-templates',
-                    description: 'Content calendar and sponsorship tracking templates.',
+                    description:
+                        'Content calendar and sponsorship tracking templates.',
                     priceInCents: 1900,
                     inventory: 0,
                     isDigital: true,
-                    assetUrl: 'https://cdn.vesselengine.com/demo/notion-link.pdf',
-                    imageUrl: 'https://images.unsplash.com/photo-1611224923853-80b023f02d71?w=800&q=80',
+                    assetUrl: 'notion-link.pdf',
+                    imageUrl:
+                        'https://images.unsplash.com/photo-1611224923853-80b023f02d71?w=800&q=80',
                 },
                 {
                     storeId: acme.id,
                     name: 'Everyday Pocket Tee',
                     slug: 'pocket-tee',
-                    description: 'Pre-shrunk, garment-dyed heavyweight cotton tee.',
+                    description:
+                        'Pre-shrunk, garment-dyed heavyweight cotton tee.',
                     priceInCents: 2800,
                     inventory: 120,
                     isDigital: false,
-                    imageUrl: 'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&q=80',
+                    imageUrl:
+                        'https://images.unsplash.com/photo-1521572163474-6864f9cf17ab?w=800&q=80',
                 },
                 {
                     storeId: acme.id,
                     name: 'Analog Film Presets',
                     slug: 'film-presets',
-                    description: 'Vintage color grading profiles for Adobe Lightroom.',
+                    description:
+                        'Vintage color grading profiles for Adobe Lightroom.',
                     priceInCents: 2500,
                     inventory: 0,
                     isDigital: true,
-                    assetUrl: 'https://cdn.vesselengine.com/demo/film-presets.zip',
-                    imageUrl: 'https://images.unsplash.com/photo-1495121605193-b116b5b9c5fe?w=800&q=80',
+                    assetUrl: 'film-presets.zip',
+                    imageUrl:
+                        'https://images.unsplash.com/photo-1495121605193-b116b5b9c5fe?w=800&q=80',
                 },
             ])
             .returning();
@@ -159,14 +187,19 @@ async function seed() {
                     priceInCents: 4900,
                     inventory: 0,
                     isDigital: true,
-                    assetUrl: 'https://cdn.vesselengine.com/demo/luts.zip',
-                    imageUrl: 'https://images.unsplash.com/photo-1485846234645-a62644f84728?w=800&q=80',
+                    assetUrl: 'luts.zip',
+                    imageUrl:
+                        'https://images.unsplash.com/photo-1485846234645-a62644f84728?w=800&q=80',
                 },
             ])
             .returning();
 
         console.log(`   → inserted ${artisanProducts.length} products.`);
         console.log('✅ [seed] Seed completed successfully.');
+        console.log(
+            '\nℹ  Reminder: upload the referenced asset files to R2 at',
+        );
+        console.log('   stores/{storeId}/assets/{filename} to enable downloads.');
     } catch (err) {
         console.error('❌ [seed] Seed failed:', err);
         process.exitCode = 1;

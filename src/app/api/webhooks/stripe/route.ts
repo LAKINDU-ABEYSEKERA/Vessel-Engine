@@ -141,9 +141,9 @@ async function handleCheckoutCompleted(
     const lineItems = lineItemsResponse.data;
 
     // ------------------------------------------------------------------
-    // Order-level idempotency — protects against the (rare) case where the
-    // event row was deleted by a prior failed attempt and the event is
-    // retried after the order was actually created.
+    // Order-level idempotency — protects against the (rare) case where
+    // the event row was deleted by a prior failed attempt and the event
+    // is retried after the order was actually created.
     // ------------------------------------------------------------------
     if (paymentIntentId) {
         const [existing] = await tx
@@ -156,6 +156,17 @@ async function handleCheckoutCompleted(
     }
 
     // ------------------------------------------------------------------
+    // Capture the email Stripe returned. Logged for debugging — the
+    // authoritative value comes from `customer_details.email`, which is
+    // guaranteed to match the signed-in account when `customer_email`
+    // was set at checkout creation time (see actions/checkout.ts).
+    // ------------------------------------------------------------------
+    const capturedEmail = session.customer_details?.email ?? null;
+    console.log(
+        `[stripe-webhook] order for email: ${capturedEmail ?? '(none)'}`
+    );
+
+    // ------------------------------------------------------------------
     // Record the order.
     // ------------------------------------------------------------------
     const [order] = await tx
@@ -164,7 +175,7 @@ async function handleCheckoutCompleted(
             storeId,
             stripePaymentIntentId: paymentIntentId,
             stripeSessionId: session.id,
-            customerEmail: session.customer_details?.email ?? 'anonymous',
+            customerEmail: capturedEmail ?? 'anonymous',
             totalAmountInCents: session.amount_total ?? 0,
             status: 'completed',
         })

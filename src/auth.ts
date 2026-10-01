@@ -28,6 +28,24 @@ declare module "@auth/core/jwt" {
     }
 }
 
+const isProd = process.env.NODE_ENV === 'production';
+
+/**
+ * Multi-tenant cookie domain.
+ *
+ * Production: `.vesselengine.com` — one session, shared by the apex and
+ * every tenant subdomain (acme.vesselengine.com, artisan.vesselengine.com…).
+ *
+ * Development: `localhost` — browsers accept this as a cookie domain for
+ * both `localhost:3000` and `acme.localhost:3000`. The leading dot is
+ * omitted because some browsers reject `.localhost`.
+ *
+ * The `__Host-` / `__Secure-` prefixes are deliberately NOT used here:
+ * they require the cookie to have NO Domain attribute, which is the exact
+ * opposite of what multi-tenant auth needs.
+ */
+const cookieDomain = isProd ? '.vesselengine.com' : 'localhost';
+
 export const { handlers, signIn, signOut, auth } = NextAuth({
     adapter: DrizzleAdapter(db, {
         usersTable: users,
@@ -76,6 +94,43 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     },
     session: {
         strategy: "jwt",
+    },
+    cookies: {
+        sessionToken: {
+            name: isProd
+                ? '__Secure-authjs.session-token'
+                : 'authjs.session-token',
+            options: {
+                httpOnly: true,
+                sameSite: 'lax',
+                path: '/',
+                secure: isProd,
+                domain: cookieDomain,
+            },
+        },
+        callbackUrl: {
+            name: isProd
+                ? '__Secure-authjs.callback-url'
+                : 'authjs.callback-url',
+            options: {
+                sameSite: 'lax',
+                path: '/',
+                secure: isProd,
+                domain: cookieDomain,
+            },
+        },
+        csrfToken: {
+            name: isProd
+                ? '__Host-authjs.csrf-token'
+                : 'authjs.csrf-token',
+            options: {
+                httpOnly: true,
+                sameSite: 'lax',
+                path: '/',
+                secure: isProd,
+                domain: cookieDomain,
+            },
+        },
     },
     callbacks: {
         jwt({ token, user }) {

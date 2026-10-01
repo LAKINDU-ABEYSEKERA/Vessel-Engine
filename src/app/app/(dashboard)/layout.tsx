@@ -22,7 +22,6 @@ export default async function DashboardLayout({
     }
 
     // Two queries in parallel: the store list and the user's avatar.
-    // Both are cheap indexed lookups.
     const [userStores, currentUserRows] = await Promise.all([
         db
             .select({
@@ -49,8 +48,19 @@ export default async function DashboardLayout({
     ]);
 
     const currentUser = currentUserRows[0];
+
+    // ------------------------------------------------------------------
+    // Customers belong in /app/customer — bounce them out of the seller
+    // dashboard before rendering any of the seller-only UI.
+    // ------------------------------------------------------------------
+    if (currentUser?.role === 'customer') {
+        redirect('/app/customer');
+    }
+
     const displayName = currentUser?.name ?? session.user.name ?? 'Account';
     const displayEmail = currentUser?.email ?? session.user.email ?? null;
+
+    // ...rest of the file unchanged from here...
 
     // Avatar precedence:
     //   1. User-uploaded avatarUrl (highest priority)

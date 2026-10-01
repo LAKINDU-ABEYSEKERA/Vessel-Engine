@@ -32,10 +32,13 @@ export function AccountForm({
     const [generalError, setGeneralError] = useState<string | null>(null);
     const [name, setName] = useState(initialName);
 
-    async function handleSubmit(formData: FormData) {
+    async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+        e.preventDefault();
         setPending(true);
         setNameError(null);
         setGeneralError(null);
+
+        const formData = new FormData(e.currentTarget);
 
         try {
             const res = await updateProfileAction(formData);
@@ -81,7 +84,7 @@ export function AccountForm({
                     Profile details
                 </h2>
 
-                <form action={handleSubmit} className="space-y-5">
+                <form onSubmit={handleSubmit} className="space-y-5">
                     <div className="space-y-1.5">
                         <label
                             htmlFor="name"

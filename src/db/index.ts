@@ -16,10 +16,13 @@ if (!connectionString) {
 export const client =
     globalForDb.client ??
     postgres(connectionString, {
-        max: 10,
+        max: 5,               // ← was 10 — Supabase free tier is
+                              //    tight; 5 is plenty for local dev.
         idle_timeout: 20,
-        connect_timeout: 10,
-        prepare: false, // Required for Supabase transaction pooler (PgBouncer)
+        connect_timeout: 30,  // ← was 10 — Supabase sometimes takes
+                              //    >10s to establish a fresh pooled
+                              //    connection after a cold start.
+        prepare: false,       // Required for Supabase transaction pooler
     });
 
 if (process.env.NODE_ENV !== 'production') {
