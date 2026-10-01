@@ -24,13 +24,6 @@ export async function createCheckoutSession(
     const session = await auth();
     const userEmail = session?.user?.email ?? null;
 
-    // ─── TEMPORARY DIAGNOSTIC ─────────────────────────────────────────────
-    const _headers = await headers();
-    console.log('[checkout-diag] host:', _headers.get('host'));
-    console.log('[checkout-diag] session email:', userEmail ?? '(none)');
-    console.log('[checkout-diag] session user id:', session?.user?.id ?? '(none)');
-// ──────────────────────────────────────────────────────────────────────
-
     // ------------------------------------------------------------------
     // 1. Guard: non-empty cart
     // ------------------------------------------------------------------
