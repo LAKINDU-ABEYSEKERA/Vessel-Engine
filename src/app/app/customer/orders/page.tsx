@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import {desc, eq, sql} from 'drizzle-orm';
-import { Package, Receipt, ShoppingBag } from 'lucide-react';
+import { Receipt, ShoppingBag } from 'lucide-react';
 
 import { auth } from '@/auth';
 import { db } from '@/db';

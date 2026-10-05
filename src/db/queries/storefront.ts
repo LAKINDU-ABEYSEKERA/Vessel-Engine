@@ -30,12 +30,14 @@ export const storefrontTags = {
 
 /* -------------------------------------------------------------------------- */
 /*  Cache wrapper memoization                                                  */
+/*  (unstable_cache returns a new function every call, so we memoize per key)  */
 /* -------------------------------------------------------------------------- */
 
 const tenantStoreCache = new Map<string, () => Promise<StoreRow | null>>();
 const storeProductsCache = new Map<string, () => Promise<ProductRow[]>>();
 const storeCategoriesCache = new Map<string, () => Promise<CategoryRow[]>>();
 const productsByCategoryCache = new Map<string, () => Promise<ProductRow[]>>();
+const storeProductCache = new Map<string, () => Promise<ProductRow | null>>();
 
 /* -------------------------------------------------------------------------- */
 /*  Queries                                                                    */
@@ -157,6 +159,42 @@ export async function getStoreProductsByCategory(
             }
         );
         productsByCategoryCache.set(cacheKey, cached);
+    }
+    return cached();
+}
+
+/* -------------------------------------------------------------------------- */
+/*  Single product by ID — used by the storefront product detail page          */
+/* -------------------------------------------------------------------------- */
+
+export async function getStoreProduct(
+    storeId: string,
+    productId: string
+): Promise<ProductRow | null> {
+    const cacheKey = `${storeId}:${productId}`;
+    let cached = storeProductCache.get(cacheKey);
+    if (!cached) {
+        cached = unstable_cache(
+            async () => {
+                const [row] = await db
+                    .select()
+                    .from(products)
+                    .where(
+                        and(
+                            eq(products.id, productId),
+                            eq(products.storeId, storeId)
+                        )
+                    )
+                    .limit(1);
+                return row ?? null;
+            },
+            ['store-product', storeId, productId],
+            {
+                tags: ['store-products', storefrontTags.products(storeId)],
+                revalidate: 60,
+            }
+        );
+        storeProductCache.set(cacheKey, cached);
     }
     return cached();
 }

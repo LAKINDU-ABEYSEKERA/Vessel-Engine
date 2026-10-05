@@ -6,31 +6,74 @@ interface EmailOptions {
     body: string;
 }
 
+const RESEND_ENDPOINT = 'https://api.resend.com/emails';
+
+function getFromAddress(): string {
+    // Must be a verified sender on your Resend account in production.
+    // Defaults to Resend's onboarding sender which works out of the box
+    // for testing (and only delivers to the account owner's email).
+    return process.env.EMAIL_FROM ?? 'Vessel Engine <onboarding@resend.dev>';
+}
+
 async function sendEmail(opts: EmailOptions): Promise<void> {
     const apiKey = process.env.RESEND_API_KEY;
 
     if (!apiKey) {
-        // Console fallback for dev — the reset link is printed in the dev server terminal.
-        console.log('\n📧 [email] Would send:');
+        // Dev fallback: print the payload to the server log so local
+        // password-reset flows stay testable without an API key.
+        console.log('\n📧 [email] Would send (no RESEND_API_KEY set):');
         console.log(`   To:      ${opts.to}`);
+        console.log(`   From:    ${getFromAddress()}`);
         console.log(`   Subject: ${opts.subject}`);
-        console.log(`   Body:\n${opts.body.split('\n').map((l) => `     ${l}`).join('\n')}`);
+        console.log(
+            `   Body:\n${opts.body
+                .split('\n')
+                .map((l) => `     ${l}`)
+                .join('\n')}`,
+        );
         console.log('');
         return;
     }
 
-    // TODO: implement Resend send when the account is ready.
-    // Shape:
-    //   await fetch('https://api.resend.com/emails', {
-    //       method: 'POST',
-    //       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-    //       body: JSON.stringify({ from, to, subject, text: body }),
-    //   });
-    console.warn('[email] RESEND_API_KEY set but Resend sending is not implemented yet.');
+    let res: Response;
+    try {
+        res = await fetch(RESEND_ENDPOINT, {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${apiKey}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                from: getFromAddress(),
+                to: opts.to,
+                subject: opts.subject,
+                text: opts.body,
+            }),
+        });
+    } catch (err) {
+        // Network failure — let the caller decide whether to swallow.
+        throw new Error(
+            `Resend request failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+    }
+
+    if (!res.ok) {
+        const bodyText = await res.text().catch(() => '');
+        throw new Error(`Resend API error ${res.status}: ${bodyText}`);
+    }
 }
 
-export async function sendPasswordResetEmail(to: string, rawToken: string): Promise<void> {
-    const resetUrl = `${PLATFORM_URL}/app/reset-password?token=${encodeURIComponent(rawToken)}`;
+/* -------------------------------------------------------------------------- */
+/*  Password reset                                                             */
+/* -------------------------------------------------------------------------- */
+
+export async function sendPasswordResetEmail(
+    to: string,
+    rawToken: string,
+): Promise<void> {
+    const resetUrl = `${PLATFORM_URL}/app/reset-password?token=${encodeURIComponent(
+        rawToken,
+    )}`;
 
     await sendEmail({
         to,

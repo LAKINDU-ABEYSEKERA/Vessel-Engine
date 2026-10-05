@@ -139,5 +139,4 @@ export default async function CustomerLayout({
             </main>
         </div>
     );
-}git status
-git diff --stat
+}

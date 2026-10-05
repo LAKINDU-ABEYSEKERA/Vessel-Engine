@@ -8,15 +8,16 @@ CREATE TABLE "password_reset_tokens" (
 	CONSTRAINT "password_reset_tokens_token_hash_unique" UNIQUE("token_hash")
 );
 --> statement-breakpoint
-CREATE TABLE "stripe_events" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"event_id" text NOT NULL,
-	"type" text NOT NULL,
-	"data" jsonb NOT NULL,
-	"created_at" timestamp DEFAULT now() NOT NULL,
-	"processed_at" timestamp,
-	CONSTRAINT "stripe_events_event_id_unique" UNIQUE("event_id")
-);
+CREATE TABLE IF NOT EXISTS "stripe_events" (
+    "id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+    "event_id" text NOT NULL,
+    "type" text NOT NULL,
+    "data" jsonb NOT NULL,
+    "created_at" timestamp DEFAULT now() NOT NULL,
+    "processed_at" timestamp,
+    CONSTRAINT "stripe_events_event_id_unique" UNIQUE("event_id")
+    );
+
 --> statement-breakpoint
 ALTER TABLE "user" ADD COLUMN "password_hash" text;--> statement-breakpoint
 ALTER TABLE "user" ADD COLUMN "role" text DEFAULT 'customer' NOT NULL;--> statement-breakpoint

@@ -7,6 +7,73 @@ import { auth } from '@/auth';
 import { db } from '@/db';
 import { users } from '@/db/schema';
 
+import { verifyPassword, hashPassword, validatePassword } from '@/lib/password';
+
+export type ChangePasswordResult =
+    | { ok: true }
+    | { ok: false; error: string; field?: 'current' | 'next' | 'general' };
+
+export async function changePasswordAction(
+    formData: FormData
+): Promise<ChangePasswordResult> {
+    const session = await auth();
+    if (!session?.user?.id) {
+        return { ok: false, error: 'You must be signed in.', field: 'general' };
+    }
+
+    const rawCurrent = formData.get('currentPassword');
+    const rawNext = formData.get('newPassword');
+
+    if (typeof rawCurrent !== 'string' || typeof rawNext !== 'string') {
+        return { ok: false, error: 'Invalid submission.', field: 'general' };
+    }
+
+    if (rawNext.length === 0) {
+        return { ok: false, error: 'New password is required.', field: 'next' };
+    }
+
+    const [user] = await db
+        .select({ passwordHash: users.passwordHash })
+        .from(users)
+        .where(eq(users.id, session.user.id))
+        .limit(1);
+
+    if (!user) {
+        return { ok: false, error: 'Account not found.', field: 'general' };
+    }
+
+    // A user may have signed up with Google and never set a password.
+    // In that case we let them set one without requiring the current.
+    if (user.passwordHash) {
+        const valid = await verifyPassword(rawCurrent, user.passwordHash);
+        if (!valid) {
+            return {
+                ok: false,
+                error: 'Current password is incorrect.',
+                field: 'current',
+            };
+        }
+    }
+
+    const pwError = validatePassword(rawNext);
+    if (pwError) {
+        return { ok: false, error: pwError, field: 'next' };
+    }
+
+    try {
+        const passwordHash = await hashPassword(rawNext);
+        await db
+            .update(users)
+            .set({ passwordHash, updatedAt: new Date() })
+            .where(eq(users.id, session.user.id));
+
+        return { ok: true };
+    } catch (err) {
+        console.error('[changePasswordAction]', err);
+        return { ok: false, error: 'Something went wrong. Please try again.', field: 'general' };
+    }
+}
+
 export type UpdateProfileResult =
     | { ok: true }
     | { ok: false; error: string; field?: 'name' | 'general' };
